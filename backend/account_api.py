@@ -7,12 +7,13 @@ import os
 import secrets
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pwdlib import PasswordHash
 from pymongo import MongoClient, ReturnDocument
 from pymongo.errors import DuplicateKeyError
+from recovery import recovery_configured, send_recovery_email
 
 password_hash = PasswordHash.recommended()
 # Verify unknown accounts against a real hash to avoid a fast account-existence path.
@@ -35,6 +36,7 @@ async def lifespan(app):
         db = client[os.environ.get("MONGODB_DATABASE", "femwise")]
         db.users.create_index("email", unique=True)
         db.sessions.create_index("expiresAt", expireAfterSeconds=0)
+        db.rateLimits.create_index("expiresAt", expireAfterSeconds=0)
         app.state.db = db
         yield
     finally:
@@ -51,8 +53,27 @@ async def private_responses(request, call_next):
     return response
 
 
-def database():
-    return app.state.db
+def database(request: Request):
+    return request.app.state.db
+
+
+def auth_rate_limit(request: Request, db=Depends(database)):
+    """Shared across workers; forwarded headers are handled by trusted proxies only."""
+    current = now()
+    window = int(current.timestamp()) // 900
+    address = request.client.host if request.client else "unknown"
+    key = token_digest(f"{address}:{request.url.path}:{window}")
+    update = {"$inc": {"count": 1}, "$setOnInsert": {
+        "expiresAt": datetime.fromtimestamp((window + 1) * 900, timezone.utc)}}
+    try:
+        entry = db.rateLimits.find_one_and_update({"_id": key}, update, upsert=True,
+                                                  return_document=ReturnDocument.AFTER)
+    except DuplicateKeyError:
+        entry = db.rateLimits.find_one_and_update({"_id": key}, {"$inc": {"count": 1}},
+                                                  return_document=ReturnDocument.AFTER)
+    if entry["count"] > int(os.environ.get("AUTH_RATE_LIMIT", "20")):
+        raise HTTPException(429, "Too many attempts. Please try again later.",
+                            headers={"Retry-After": str((window + 1) * 900 - int(current.timestamp()))})
 
 
 class Input(BaseModel):
@@ -86,6 +107,24 @@ class Registration(Credentials):
         return value.strip()
 
 
+class RecoveryRequest(Input):
+    email: str = Field(min_length=3, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value):
+        return Credentials.normalize_email(value)
+
+
+class PasswordReset(Input):
+    token: str = Field(min_length=40, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class GuestAccess(Input):
+    key: str = Field(min_length=40, max_length=128)
+
+
 class ProfilePatch(Input):
     lastPeriodStartDate: date | None = None
     averagePeriodDuration: int | None = Field(default=None, ge=1, le=60)
@@ -115,6 +154,7 @@ class DailyLog(Input):
     cervicalMucus: str = Field(max_length=100)
     opkResult: str = Field(max_length=100)
     intercourseToday: bool = False
+    unusualBleedingLastCycle: bool | None = None
 
 
 class CycleUpdate(Input):
@@ -144,6 +184,7 @@ def new_session(db, user):
     expires = now() + timedelta(days=7)
     db.sessions.insert_one({
         "_id": token_digest(token), "userId": user["_id"], "expiresAt": expires,
+        "credentialsVersion": user.get("credentialsVersion", 0),
     })
     return {"access_token": token, "token_type": "bearer", "user": public_user(user)}
 
@@ -160,7 +201,7 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
     if not session:
         raise unauthorized
     user = db.users.find_one({"_id": session["userId"]}, {"dailyLogs": 0})
-    if user is None:
+    if user is None or session.get("credentialsVersion", 0) != user.get("credentialsVersion", 0):
         raise unauthorized
     return user
 
@@ -171,7 +212,7 @@ def health(db=Depends(database)):
     return {"status": "ok", "storage": "mongodb"}
 
 
-@app.post("/auth/register", status_code=201)
+@app.post("/auth/register", status_code=201, dependencies=[Depends(auth_rate_limit)])
 def register(body: Registration, db=Depends(database)):
     user = {
         "_id": secrets.token_hex(16), "email": body.email, "name": body.name,
@@ -186,13 +227,58 @@ def register(body: Registration, db=Depends(database)):
     return new_session(db, user)
 
 
-@app.post("/auth/login")
+@app.post("/auth/login", dependencies=[Depends(auth_rate_limit)])
 def login(body: Credentials, db=Depends(database)):
     user = db.users.find_one({"email": body.email}, {"dailyLogs": 0})
-    valid = password_hash.verify(body.password, user["passwordHash"] if user else dummy_hash)
-    if not user or not valid:
+    valid = password_hash.verify(body.password, user.get("passwordHash", dummy_hash) if user else dummy_hash)
+    if not user or user.get("isGuest") or not valid:
         raise HTTPException(401, "Invalid email or password.")
     return new_session(db, user)
+
+
+@app.post("/auth/guest", dependencies=[Depends(auth_rate_limit)])
+def guest_access(body: GuestAccess, db=Depends(database)):
+    # A device-generated capability keeps anonymous devices isolated.
+    uid = "guest_" + token_digest(body.key)
+    user = db.users.find_one_and_update({"_id": uid}, {"$setOnInsert": {
+        "email": uid + "@guest.invalid", "name": "Guest", "isGuest": True,
+        "profile": {"onboardingComplete": False, "currentCycleStatus": "NOT_PERIOD",
+                    "createdAt": now().isoformat()},
+    }}, upsert=True, return_document=ReturnDocument.AFTER)
+    return new_session(db, user)
+
+
+@app.post("/auth/forgot-password", dependencies=[Depends(auth_rate_limit)])
+def forgot_password(body: RecoveryRequest, db=Depends(database)):
+    if not recovery_configured():
+        raise HTTPException(503, "Password recovery is not configured. Contact the app administrator.")
+    user = db.users.find_one({"email": body.email}, {"_id": 1, "email": 1})
+    if user:
+        token = secrets.token_urlsafe(32)
+        digest = token_digest(token)
+        db.users.update_one({"_id": user["_id"]}, {"$set": {
+            "passwordResetHash": digest, "passwordResetExpiresAt": now() + timedelta(minutes=20)}})
+        try:
+            send_recovery_email(user["email"], token)
+        except Exception:
+            db.users.update_one({"_id": user["_id"], "passwordResetHash": digest},
+                                {"$unset": {"passwordResetHash": "", "passwordResetExpiresAt": ""}})
+            # Same response as an unknown account; never expose transport credentials.
+    return {"message": "If that account exists, a recovery code will be emailed to it."}
+
+
+@app.post("/auth/reset-password", dependencies=[Depends(auth_rate_limit)])
+def reset_password(body: PasswordReset, db=Depends(database)):
+    updated = db.users.find_one_and_update({
+        "passwordResetHash": token_digest(body.token), "passwordResetExpiresAt": {"$gt": now()},
+    }, {"$set": {"passwordHash": password_hash.hash(body.password)},
+        "$inc": {"credentialsVersion": 1},
+        "$unset": {"passwordResetHash": "", "passwordResetExpiresAt": ""}},
+        return_document=ReturnDocument.AFTER)
+    if updated is None:
+        raise HTTPException(400, "Invalid or expired recovery code.")
+    db.sessions.delete_many({"userId": updated["_id"]})
+    return {"message": "Password updated. Please sign in again."}
 
 
 @app.post("/auth/logout", status_code=204)
@@ -209,8 +295,8 @@ def get_profile(user=Depends(current_user)):
 @app.patch("/me")
 def update_profile(body: ProfilePatch, user=Depends(current_user), db=Depends(database)):
     changes = body.model_dump(mode="json", exclude_unset=True)
-    if changes.get("onboardingComplete") is True:
-        merged = {**user.get("profile", {}), **changes}
+    merged = {**user.get("profile", {}), **changes}
+    if merged.get("onboardingComplete") is True:
         if not all(merged.get(k) is not None for k in (
                 "lastPeriodStartDate", "averagePeriodDuration", "typicalCycleLength")):
             raise HTTPException(422, "Period date, duration and cycle length are required.")
