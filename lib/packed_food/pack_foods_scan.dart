@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:pcos_app/services/api_config.dart';
-import 'package:pcos_app/services/account_service.dart';
+import 'package:femwise/services/api_config.dart';
+import 'package:femwise/services/account_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';

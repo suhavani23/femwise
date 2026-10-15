@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pcos_app/services/api_config.dart';
-import 'package:pcos_app/services/account_service.dart';
+import 'package:femwise/services/api_config.dart';
+import 'package:femwise/services/account_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io'; // For File

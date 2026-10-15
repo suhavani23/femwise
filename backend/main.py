@@ -239,19 +239,6 @@ async def call_llm_for_ingredient_extraction(raw_text: str) -> list[str]:
         print(f"\n❌ Error calling Ollama: {e}")
         return []
 
-<<<<<<< HEAD
-# --- Generative Model Setup (from your existing LLM script) ---
-GEMINI_API_KEYS = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()] or [""]  # Comma-separated keys from the environment
-
-current_key_index = 0
-current_api_key = GEMINI_API_KEYS[current_key_index]
-genai.configure(api_key=current_api_key)
-
-# --- Generative Model Setup ---
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-=======
->>>>>>> f1cfbd8 (feat(ai): integrate OpenAI Chat completions with Gemini fallback and local Ollama extraction)
 # --- NEW: LLM Function for Precise Classification ---
 async def get_precise_classification_from_llm(raw_classification_text: str | None) -> str:
     if not raw_classification_text or raw_classification_text.strip().lower() == "unknown":

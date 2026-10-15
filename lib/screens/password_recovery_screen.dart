@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pcos_app/services/account_service.dart';
+import 'package:femwise/services/account_service.dart';
 
 class PasswordRecoveryScreen extends StatefulWidget {
   const PasswordRecoveryScreen({super.key});
