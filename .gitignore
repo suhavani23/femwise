@@ -61,7 +61,6 @@ app.*.map.json
 /android/keystores/
 /android/**/*.iml
 /web/
-/test/
 /test_driver/
 /coverage/
 /doc/

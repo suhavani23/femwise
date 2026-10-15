@@ -6,7 +6,7 @@ import 'dart:math'; // Import for min/max functions
 import 'package:femwise/screens/daily_log_screen.dart';
 import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
 import 'package:femwise/screens/symptom_selection_screen.dart'; // Adjust path as needed for your symptom selection screen
-import 'package:femwise/packed_food/pack_foods_scan.dart'; // Import your food scanner screen
+import 'package:femwise/services/api_config.dart';
 import 'package:femwise/food_options/food_options_screen.dart';
 
 // Enum must be at the top-level (outside the class)
@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime _focusedDay = DateTime.now();
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  Map<String, dynamic> _dailyLogs = {};
 
   // Data fetched from the account API
   DateTime? _lastPeriodStartDate;
@@ -84,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final userDoc = await AccountService.instance.getProfile();
+      _dailyLogs = await AccountService.instance.getDailyLogs();
 
       if (userDoc.isNotEmpty) {
         _userData = userDoc;
@@ -166,6 +168,12 @@ class _HomeScreenState extends State<HomeScreen> {
           break; // Only add once per day
         }
       }
+    }
+
+    if (_dailyLogs[DateFormat('yyyy-MM-dd').format(day)]?['isOnPeriod'] ==
+            true &&
+        !types.contains(CalendarMarkerType.currentPeriod)) {
+      types.add(CalendarMarkerType.currentPeriod);
     }
 
     // Check for predicted period
@@ -525,8 +533,24 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.person_outline, color: Colors.white),
             tooltip: 'Cycle profile',
-            onPressed: () => Navigator.of(context).pushNamed('/profile'),
-          )
+            onPressed: () async {
+              await Navigator.of(context).pushNamed('/profile');
+              if (mounted) await _fetchUserDataAndMakeInitialPrediction();
+            },
+          ),
+          PopupMenuButton<bool>(
+              tooltip: 'Tracking data',
+              onSelected: (demo) async {
+                await AccountService.instance.setDemoMode(demo);
+                if (mounted) await _fetchUserDataAndMakeInitialPrediction();
+              },
+              itemBuilder: (_) => [
+                    PopupMenuItem(
+                        value: !AccountService.instance.demoMode,
+                        child: Text(AccountService.instance.demoMode
+                            ? 'Use my own records'
+                            : 'Show demo history'))
+                  ]),
         ],
       ),
       body: Container(
@@ -560,6 +584,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (AccountService.instance.demoMode)
+                const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                        'DEMO HISTORY • Sample irregular cycles over five months. Not real health records.',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 0.0),
                 child: Text(
@@ -647,19 +677,20 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             // ICON BUTTON FOR FOOD OPTIONS
-            IconButton(
-              icon: Icon(Icons.restaurant_menu,
-                  color: Colors.grey.shade600,
-                  size: 28), // Changed to a general food icon
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
-                  ),
-                );
-              },
-            ),
+            if (ApiConfig.foodAnalysisEnabled)
+              IconButton(
+                icon: Icon(Icons.restaurant_menu,
+                    color: Colors.grey.shade600,
+                    size: 28), // Changed to a general food icon
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
+                    ),
+                  );
+                },
+              ),
             // Spacer for the FAB
             const SizedBox(width: 48),
             IconButton(
@@ -976,10 +1007,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (markerTypes
                             .contains(CalendarMarkerType.currentPeriod) &&
                         _lastPeriodStartDate != null) {
-                      int periodDayIndex =
-                          day.difference(_lastPeriodStartDate!).inDays;
-                      backgroundCircleColor = _periodShades[
-                          min(periodDayIndex, _periodShades.length - 1)];
+                      int periodDayIndex = (_dailyLogs[DateFormat('yyyy-MM-dd')
+                                  .format(day)]?['menstrualDay'] as int?) !=
+                              null
+                          ? (_dailyLogs[DateFormat('yyyy-MM-dd').format(day)]
+                                  ['menstrualDay'] as int) -
+                              1
+                          : day.difference(_lastPeriodStartDate!).inDays;
+                      backgroundCircleColor = _periodShades[max(
+                          0, min(periodDayIndex, _periodShades.length - 1))];
                       textColor = Colors.white;
                       textFontWeight = FontWeight.bold;
                     } else if (markerTypes

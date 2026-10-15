@@ -2,12 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart'; // Import for custom fonts
-import 'package:femwise/services/account_service.dart'; // Required for logout button
 import 'guide_run_screen.dart';
 import 'package:femwise/screens/home_screen.dart'; // To navigate back to Home
-import 'package:femwise/screens/daily_log_screen.dart'; // Import for DailyLogScreen
 import 'package:femwise/screens/symptom_selection_screen.dart'; // To navigate back to Symptom Selection
-import 'package:femwise/packed_food/pack_foods_scan.dart'; // Import your food scanner screen
+import 'package:femwise/services/api_config.dart';
 import 'package:femwise/food_options/food_options_screen.dart';
 
 class GuideListScreen extends StatefulWidget {
@@ -65,6 +63,7 @@ class _GuideListScreenState extends State<GuideListScreen> {
       fileName = widget.symptom.toLowerCase() + '.json'; // Assign value here
       final String data = await rootBundle.loadString('assets/jsons/$fileName');
       final List<dynamic> jsonResult = json.decode(data);
+      if (!mounted) return;
       setState(() {
         guides = jsonResult;
       });
@@ -77,13 +76,15 @@ class _GuideListScreenState extends State<GuideListScreen> {
                   'Failed to load guides for ${widget.symptom}. Please check assets/jsons/$fileName.')),
         );
       }
-      setState(() {
-        guides = []; // Clear guides on error
-      });
+      if (mounted)
+        setState(() {
+          guides = []; // Clear guides on error
+        });
     } finally {
-      setState(() {
-        _isLoading = false; // Set loading to false once loading is complete
-      });
+      if (mounted)
+        setState(() {
+          _isLoading = false; // Set loading to false once loading is complete
+        });
     }
   }
 
@@ -102,7 +103,7 @@ class _GuideListScreenState extends State<GuideListScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(
-          '${widget.symptom} Guides',
+          '${widget.symptom[0].toUpperCase()}${widget.symptom.substring(1)} Guides',
           style: GoogleFonts.poppins(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -286,19 +287,20 @@ class _GuideListScreenState extends State<GuideListScreen> {
                 );
               },
             ),
-            IconButton(
-              icon: Icon(Icons.restaurant_menu,
-                  color: Colors.grey.shade600,
-                  size: 28), // Changed to a general food icon
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
-                  ),
-                );
-              },
-            ),
+            if (ApiConfig.foodAnalysisEnabled)
+              IconButton(
+                icon: Icon(Icons.restaurant_menu,
+                    color: Colors.grey.shade600,
+                    size: 28), // Changed to a general food icon
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
+                    ),
+                  );
+                },
+              ),
             // No Spacer needed as there's no FAB
             IconButton(
               icon: Icon(Icons.self_improvement,
@@ -306,16 +308,17 @@ class _GuideListScreenState extends State<GuideListScreen> {
                   size: 28), // Meditation/Symptom icon selected
               onPressed: () {
                 // Pop all routes until SymptomSelectionScreen, or the very first route
-                Navigator.of(context).popUntil((route) {
-                  return route.isFirst ||
-                      (route.settings.name == '/symptomSelection');
+                final navigator = Navigator.of(context);
+                var foundSelection = false;
+                navigator.popUntil((route) {
+                  foundSelection = route.settings.name == '/symptomSelection';
+                  return route.isFirst || foundSelection;
                 });
                 // After popping, if the current top route is not the SymptomSelectionScreen,
                 // then push SymptomSelectionScreen as a replacement.
                 // We must use `ModalRoute.of(context)` to get the settings of the current route.
-                if (ModalRoute.of(context)?.settings.name !=
-                    '/symptomSelection') {
-                  Navigator.of(context).pushReplacement(
+                if (!foundSelection) {
+                  navigator.push(
                     MaterialPageRoute(
                       builder: (context) => const SymptomSelectionScreen(),
                       settings: const RouteSettings(

@@ -275,16 +275,6 @@ def get_ingredient_attributes_from_neo4j(ingredient_name: str, session) -> dict:
     return None # No useful match found after all attempts
 
 
-<<<<<<< HEAD
-# --- Generative Model Setup (from your existing LLM script) ---
-GEMINI_API_KEYS = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()] or [""]  # Comma-separated keys from the environment
-
-current_key_index = 0
-# Initialize current_api_key, will be updated by configure_gemini()
-current_api_key = GEMINI_API_KEYS[current_key_index]
-
-=======
->>>>>>> f1cfbd8 (feat(ai): integrate OpenAI Chat completions with Gemini fallback and local Ollama extraction)
 # Modified SYSTEM PROMPT (as per your request)
 SYSTEM_PROMPT = """
 You are an expert AI assistant for a PCOS-focused nutrition app. Your task is to analyze ingredient information from a food product and provide a clear, concise, and helpful verdict and explanation for women with PCOS.

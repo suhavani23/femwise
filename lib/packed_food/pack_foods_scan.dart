@@ -1,502 +1,250 @@
-import 'dart:async';
-import 'package:femwise/services/api_config.dart';
-import 'package:femwise/services/account_service.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:camera/camera.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-// Remove the global 'late List<CameraDescription> _cameras;' declaration
-// Remove the 'Future<void> main() async { ... }' function
-// Remove the 'class MyApp extends StatelessWidget { ... }'
+import 'package:image_picker/image_picker.dart';
+import 'package:femwise/services/ingredient_service.dart';
 
 class ImageToTextScreen extends StatefulWidget {
   const ImageToTextScreen({super.key});
-
   @override
   State<ImageToTextScreen> createState() => _ImageToTextScreenState();
 }
 
-class _ImageToTextScreenState extends State<ImageToTextScreen> {
-  String _extractedText = '';
-  final ImagePicker _picker = ImagePicker();
+class _ImageToTextScreenState extends State<ImageToTextScreen>
+    with WidgetsBindingObserver {
+  final _service = IngredientService();
+  CameraController? _camera;
+  bool _startingCamera = false;
   bool _isProcessing = false;
-  String _backendResponse = '';
-
-  CameraController? _cameraController;
-  Future<void>? _initializeCameraControllerFuture;
-
-  // Declare _cameras as an instance variable within the State class
-  List<CameraDescription> _cameras = [];
+  String _cameraMessage = 'Starting camera…';
+  String _extractedText = '';
+  String _review = '';
+  int _cameraGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
   }
 
   Future<void> _initializeCamera() async {
+    if (_startingCamera || _camera != null) return;
+    _startingCamera = true;
+    final generation = ++_cameraGeneration;
+    CameraController? controller;
     try {
-      // Initialize _cameras here by getting available cameras
-      _cameras = await availableCameras();
-
-      if (_cameras.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _extractedText = "No cameras found on this device.";
-          });
-        }
+      final cameras = await availableCameras();
+      if (!mounted || generation != _cameraGeneration) return;
+      if (cameras.isEmpty)
+        throw CameraException('NoCamera', 'No camera found.');
+      final selected = cameras.firstWhere(
+          (camera) => camera.lensDirection == CameraLensDirection.back,
+          orElse: () => cameras.first);
+      controller =
+          CameraController(selected, ResolutionPreset.high, enableAudio: false);
+      await controller.initialize();
+      if (!mounted || generation != _cameraGeneration) {
+        await controller.dispose();
         return;
       }
-      final firstCamera = _cameras.first;
-
-      _cameraController = CameraController(
-        firstCamera,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      _initializeCameraControllerFuture =
-          _cameraController!.initialize().then((_) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {}); // Rebuild to display camera preview
-      }).catchError((Object e) {
-        if (e is CameraException) {
-          switch (e.code) {
-            case 'CameraAccessDenied':
-              if (mounted) {
-                setState(() {
-                  _extractedText =
-                      'Camera access denied. Please grant permission in settings.';
-                });
-              }
-              break;
-            default:
-              if (mounted) {
-                setState(() {
-                  _extractedText =
-                      'Error initializing camera: ${e.description}';
-                });
-              }
-              print('Error initializing camera: ${e.description}');
-              break;
-          }
-        }
+      setState(() {
+        _camera = controller;
       });
-    } catch (e) {
-      if (mounted) {
+    } catch (_) {
+      await controller?.dispose();
+      if (mounted)
         setState(() {
-          _extractedText = 'Error getting available cameras: $e';
+          _cameraMessage =
+              'Camera unavailable. You can choose a photo or enter ingredients below.';
         });
+    } finally {
+      _startingCamera = false;
+      if (mounted &&
+          generation != _cameraGeneration &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _initializeCamera();
       }
-      print('Error getting available cameras: $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive) {
+      _cameraGeneration++;
+      final controller = _camera;
+      _camera = null;
+      controller?.dispose();
+      if (mounted) setState(() {});
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
     }
   }
 
   @override
   void dispose() {
-    _cameraController?.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _cameraGeneration++;
+    _camera?.dispose();
     super.dispose();
   }
 
-  Future<void> _sendTextToFastAPI(String textToSend) async {
+  Future<void> _analyze(String text) async {
+    if (!mounted) return;
     setState(() {
+      _extractedText = text;
+      _review = '';
       _isProcessing = true;
-      _backendResponse = 'Sending text to backend...';
     });
-
-    final uri =
-        ApiConfig.endpoint(ApiConfig.packagedFood, '/extract_ingredients');
-
     try {
-      final response = await http
-          .post(
-            uri,
-            headers: <String, String>{
-              ...await AccountService.instance.foodAuthorizationHeaders(),
-              'Content-Type': 'application/json; charset=UTF-8',
-            },
-            body: jsonEncode(<String, String>{
-              'text': textToSend,
-            }),
-          )
-          .timeout(const Duration(seconds: 120));
-
-      if (response.statusCode == 200) {
-        final responseBody = jsonDecode(response.body);
-
-        if (responseBody['extracted_ingredients'] is List) {
-          List<dynamic> ingredients = responseBody['extracted_ingredients'];
-          String formattedResponse = 'Backend Response:\n';
-          for (var item in ingredients) {
-            formattedResponse += '  - ${item['original_extracted_name']}:\n';
-            if (item['is_exact_match']) {
-              formattedResponse += '    Matched Name: ${item['name']}\n';
-            } else if (item['name'] != item['original_extracted_name'] &&
-                item['name'] != null) {
-              formattedResponse += '    Closest Match: ${item['name']}\n';
-            } else {
-              formattedResponse += '    Status: ${item['name']} (not found)\n';
-            }
-            formattedResponse += '    Effects: ${item['effects'] ?? 'N/A'}\n';
-            formattedResponse += '    Verdict: ${item['verdict'] ?? 'N/A'}\n';
-          }
-          _backendResponse = formattedResponse;
-        } else {
-          _backendResponse =
-              'Backend acknowledged: ${responseBody['message'] ?? 'Success'}';
-        }
-
-        setState(() {});
-        print('Text sent successfully! Backend acknowledged.');
-        print('Backend response body: ${response.body}');
-      } else {
-        setState(() {
-          _backendResponse =
-              'Error from backend: ${response.statusCode} - ${response.body}';
-        });
-        print('Failed to send text. Status code: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-    } catch (e) {
-      setState(() {
-        _backendResponse = 'Network/API error: $e';
-      });
-      print('Error sending text to backend: $e');
+      final review = await _service.analyze(text);
+      if (mounted) setState(() => _review = review);
+    } catch (error) {
+      if (mounted) setState(() => _review = error.toString());
     } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
-  Future<void> _takePictureAndRecognizeText() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      if (mounted) {
-        setState(() {
-          _extractedText = 'Camera not initialized.';
-        });
-      }
-      return;
-    }
+  Future<void> _editIngredients() async {
+    final controller = TextEditingController(text: _extractedText);
+    final route = DialogRoute<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+              title: const Text('Enter ingredients'),
+              content: SingleChildScrollView(
+                  child: TextField(
+                controller: controller,
+                minLines: 3,
+                maxLines: 8,
+                maxLength: 20000,
+                decoration: const InputDecoration(
+                    hintText: 'Paste or type the ingredient list'),
+              )),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () {
+                      if (controller.text.trim().isNotEmpty)
+                        Navigator.pop(dialogContext, controller.text.trim());
+                    },
+                    child: const Text('Analyze')),
+              ],
+            ));
+    final text = await Navigator.of(context).push(route);
+    await route.completed;
+    controller.dispose();
+    if (text != null && mounted) await _analyze(text);
+  }
 
-    if (mounted) {
-      setState(() {
-        _isProcessing = true;
-        _extractedText = 'Capturing image...';
-        _backendResponse = '';
-      });
-    }
-
+  Future<void> _scan({required bool gallery}) async {
+    setState(() => _isProcessing = true);
     try {
-      final XFile imageFile = await _cameraController!.takePicture();
-
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: imageFile.path,
+      final XFile? photo = gallery
+          ? await ImagePicker().pickImage(source: ImageSource.gallery)
+          : await _camera?.takePicture();
+      if (photo == null || !mounted) return;
+      final cropped = await ImageCropper().cropImage(
+        sourcePath: photo.path,
         compressFormat: ImageCompressFormat.jpg,
         compressQuality: 90,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Crop Image',
-            toolbarColor: Theme.of(context).colorScheme.primary,
-            toolbarWidgetColor: Colors.white,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
-            hideBottomControls: false,
-            activeControlsWidgetColor: Theme.of(context).colorScheme.secondary,
-            cropGridColor: Colors.white,
-          ),
-          IOSUiSettings(
-            title: 'Crop Image',
-            doneButtonTitle: 'Done',
-            cancelButtonTitle: 'Back',
-            aspectRatioLockEnabled: false,
-            rotateButtonsHidden: false,
-            resetButtonHidden: false,
-          ),
-          WebUiSettings(
-            context: context,
-          ),
+              toolbarTitle: 'Crop ingredient list',
+              toolbarColor: Colors.deepPurple,
+              toolbarWidgetColor: Colors.white,
+              lockAspectRatio: false),
+          IOSUiSettings(title: 'Crop ingredient list')
         ],
       );
-
-      if (croppedFile != null) {
-        await _processImageForText(croppedFile.path);
-      } else {
-        if (mounted) {
-          setState(() {
-            _extractedText = 'Image capture cancelled or not cropped.';
-            _backendResponse = '';
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _extractedText = 'Error capturing image: $e';
-          _backendResponse = '';
-        });
-      }
-      print('Error capturing image: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _pickImageFromGalleryAndRecognizeText() async {
-    if (mounted) {
-      setState(() {
-        _isProcessing = true;
-        _extractedText = '';
-        _backendResponse = '';
-      });
-    }
-
-    try {
-      final XFile? pickedFile =
-          await _picker.pickImage(source: ImageSource.gallery);
-
-      if (pickedFile != null) {
-        final croppedFile = await ImageCropper().cropImage(
-          sourcePath: pickedFile.path,
-          compressFormat: ImageCompressFormat.jpg,
-          compressQuality: 90,
-          uiSettings: [
-            AndroidUiSettings(
-              toolbarTitle: 'Crop Image',
-              toolbarColor: Theme.of(context).colorScheme.primary,
-              toolbarWidgetColor: Colors.white,
-              initAspectRatio: CropAspectRatioPreset.original,
-              lockAspectRatio: false,
-            ),
-            IOSUiSettings(
-              title: 'Crop Image',
-              doneButtonTitle: 'Done',
-              cancelButtonTitle: 'Cancel',
-              aspectRatioLockEnabled: false,
-              rotateButtonsHidden: false,
-              resetButtonHidden: false,
-            ),
-            WebUiSettings(
-              context: context,
-            ),
-          ],
-        );
-
-        if (croppedFile != null) {
-          await _processImageForText(croppedFile.path);
+      if (cropped == null || !mounted) return;
+      final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      try {
+        final result = await recognizer
+            .processImage(InputImage.fromFilePath(cropped.path));
+        if (!mounted) return;
+        if (result.text.trim().isEmpty) {
+          setState(() => _review =
+              'No text was found. Try a clearer photo or enter ingredients.');
         } else {
-          if (mounted) {
-            setState(() {
-              _extractedText = 'Image picking cancelled or not cropped.';
-              _backendResponse = '';
-            });
-          }
+          await _analyze(result.text);
         }
-      } else {
-        if (mounted) {
-          setState(() {
-            _extractedText = 'Image picking cancelled.';
-            _backendResponse = '';
-          });
-        }
+      } finally {
+        await recognizer.close();
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _extractedText = 'Error picking image from gallery: $e';
-          _backendResponse = '';
-        });
-      }
-      print('Error picking image from gallery: $e');
+    } catch (_) {
+      if (mounted)
+        setState(() => _review =
+            'Unable to read this image. Please retry or enter ingredients.');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _processImageForText(String imagePath) async {
-    try {
-      final InputImage inputImage = InputImage.fromFilePath(imagePath);
-      final textRecognizer =
-          TextRecognizer(script: TextRecognitionScript.latin);
-      final RecognizedText recognizedText =
-          await textRecognizer.processImage(inputImage);
-
-      if (mounted) {
-        setState(() {
-          _extractedText = recognizedText.text.isEmpty
-              ? 'No text found or recognized.'
-              : recognizedText.text;
-        });
-
-        if (_extractedText.isNotEmpty &&
-            _extractedText != 'No text found or recognized.') {
-          await _sendTextToFastAPI(_extractedText);
-        } else {
-          if (mounted) {
-            setState(() {
-              _isProcessing = false;
-              _backendResponse = 'No text to send to backend.';
-            });
-          }
-        }
-      }
-      textRecognizer.close();
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _extractedText = 'Error during text recognition: $e';
-          _backendResponse = 'Error during text recognition.';
-        });
-      }
-      print('Error during text recognition: $e');
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      appBar: AppBar(
-        title: Text(
-          'Ingredients Scanner',
-          style: GoogleFonts.montserrat(
-            color: Theme.of(context).colorScheme.onPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        elevation: 0,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: 'Scan a label from gallery',
-            onPressed:
-                _isProcessing ? null : _pickImageFromGalleryAndRecognizeText,
-            icon: const Icon(Icons.photo_library_outlined),
-          )
-        ],
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.onPrimary,
-        ),
-      ),
-      body: FutureBuilder<void>(
-        future: _initializeCameraControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            if (_cameraController == null ||
-                !_cameraController!.value.isInitialized) {
-              return Center(
-                child: Text(
-                  _extractedText.isNotEmpty
-                      ? _extractedText
-                      : "Camera not available or permissions not granted.",
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+            title: const Text('Ingredients Scanner'),
+            backgroundColor: Colors.deepPurple.shade400,
+            foregroundColor: Colors.white),
+        body: SafeArea(
+            child: Column(children: [
+          Expanded(
+              child: _camera?.value.isInitialized == true
+                  ? ClipRect(child: Center(child: CameraPreview(_camera!)))
+                  : Center(
+                      child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(_cameraMessage,
+                              textAlign: TextAlign.center)))),
+          const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                  'Ingredient text is sent for AI review. Your tracking records stay on this phone.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(
-                      fontSize: 18,
-                      color: Theme.of(context).colorScheme.onPrimary),
-                ),
-              );
-            }
-            return Column(
-              children: <Widget>[
-                Expanded(
-                  flex: 1,
-                  child: Stack(
-                    children: <Widget>[
-                      Positioned.fill(
-                        child: AspectRatio(
-                          aspectRatio: _cameraController!.value.aspectRatio,
-                          child: CameraPreview(_cameraController!),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _isProcessing
-                                ? null
-                                : () => _takePictureAndRecognizeText(),
-                            child: Center(
-                              child: _isProcessing
-                                  ? CircularProgressIndicator(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onPrimary)
-                                  : Column(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          'Tap anywhere to capture image',
-                                          style: GoogleFonts.montserrat(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.8),
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 20),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: _isProcessing
-                          ? CircularProgressIndicator(
-                              color: Theme.of(context).colorScheme.onSurface)
-                          : SingleChildScrollView(
-                              child: SelectableText(
-                                _extractedText.isEmpty
-                                    ? 'Place the camera over the text and tap to scan.'
-                                    : (_backendResponse.isEmpty
-                                        ? _extractedText
-                                        : 'Extracted:\n$_extractedText\n\n$_backendResponse'),
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.montserrat(
-                                  fontSize: 16,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          } else {
-            return Center(
-                child: CircularProgressIndicator(
-                    color: Theme.of(context).colorScheme.onPrimary));
-          }
-        },
-      ),
-    );
-  }
+                  style: TextStyle(fontSize: 12))),
+          Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
+            IconButton(
+                tooltip: 'Scan with camera',
+                icon: const Icon(Icons.camera_alt),
+                onPressed: _isProcessing || _camera?.value.isInitialized != true
+                    ? null
+                    : () => _scan(gallery: false)),
+            IconButton(
+                tooltip: 'Choose label photo',
+                icon: const Icon(Icons.photo_library_outlined),
+                onPressed: _isProcessing ? null : () => _scan(gallery: true)),
+            TextButton.icon(
+                onPressed: _isProcessing ? null : _editIngredients,
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Enter / edit ingredients')),
+          ]),
+          Expanded(
+              child: Container(
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.all(16),
+            child: _isProcessing
+                ? const Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Reading ingredients…')
+                  ]))
+                : SingleChildScrollView(
+                    child: SelectableText(
+                        [
+                          _extractedText.isEmpty
+                              ? 'Scan a label, choose a photo or enter ingredients.'
+                              : 'Scanned text:\n$_extractedText',
+                          if (_review.isNotEmpty) _review
+                        ].join('\n\n'),
+                        style: GoogleFonts.montserrat(fontSize: 15))),
+          )),
+        ])),
+      );
 }

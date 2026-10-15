@@ -116,7 +116,7 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
         );
       }
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }
@@ -236,7 +236,8 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not logged in.')),
+          const SnackBar(
+              content: Text('Please reopen the app to load local storage.')),
         );
       }
       return;
@@ -318,9 +319,10 @@ class _DailyLogScreenState extends State<DailyLogScreen> {
         );
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 

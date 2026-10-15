@@ -1,0 +1,2 @@
+# Production API: MongoDB accounts and OpenAI ingredient scanner.
+-r requirements-accounts.txt

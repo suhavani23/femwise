@@ -1,8 +1,27 @@
-# PCOSense setup and handoff
+# FemWise setup and handoff
 
 Prepared on 15 October 2026 in `E:\Team Aether\Chaos\femwise`.
 
-## Current APK: no login required
+## Current APK: restored scanner and five-month demo history
+
+Version 1.0.2, build 3 adds the ingredient scanner back and routes it to
+`https://femwise.onrender.com/extract_ingredients` in the existing account API.
+It uses OpenAI, without the legacy Neo4j/Ollama/Chroma dependencies. The updated
+backend must be deployed before analysis works. See `RENDER_SCANNER_SETUP.md`.
+
+New APK: `build/app/outputs/flutter-apk/FemWise-scanner-demo-v1.0.2.apk`.
+The app still has no login. Five irregular sample cycles span about five months,
+in a separately encrypted demo dataset. Existing real records are preserved.
+Fresh installs show demo history; existing users can enable it through the
+top-right menu. Choose **Use my own records** to leave demo mode.
+
+Validation: **14 Flutter tests passed; 24 backend tests passed, 1 real-MongoDB
+test skipped; analyzer clean**. SDK request and structured response parsing were
+verified with mocked HTTP. Physical camera/OCR and a real provider request still
+need runtime verification. An existing merge conflict in the legacy cooked-food
+module was fixed so backend tests can import it.
+
+## Previous build: tracking and self-care, no login required
 
 The latest APK opens directly to the home screen in guest mode. There is no
 login/signup step or logout button. Use the profile icon to enter cycle details.
@@ -10,17 +29,38 @@ Guest profiles and daily logs are saved in encrypted storage **on the phone**,
 and work without the laptop or MongoDB. They are not synced to MongoDB in this
 version. Clearing app data removes this local guest history.
 
-Existing MongoDB accounts/data remain unchanged. The protected account API still
-exists for legacy accounts; food services can obtain a separate, device-isolated
-guest session automatically. Food analysis still requires the laptop backend and
-its configured food providers/datasets. SMTP and account recovery are not needed
-to use the guest app.
+Account-service configuration now defaults to `https://femwise.onrender.com`.
+The live health endpoint returned `status: ok, storage: mongodb`. This confirms
+the server's MongoDB connection; guest profiles and logs still stay on the phone.
+Saved HTTP laptop addresses from earlier builds are ignored on startup.
 
-Latest validation: **19 backend tests passed, 2 Flutter tests passed, analyzer
-clean, debug APK built successfully**. The offline storage test verifies profile
-and log persistence across service initialization without making API requests.
+Food scanning is hidden throughout home and self-care navigation, as requested.
+The deployed account server has no food-analysis routes. A future food build
+needs deployed food services and their URLs; `ENABLE_FOOD_ANALYSIS` defaults to
+false. Existing MongoDB accounts/data remain unchanged.
 
-Updated APK: `build/app/outputs/flutter-apk/pcosense-no-login.apk`.
+Profile editing now prefills saved values and refreshes home after saving.
+Overlapping saves are serialized to preserve all daily logs and profile fields.
+Eleven checksum-verified font files and their licenses are bundled for offline
+use. Self-care has camera-denied fallback using images and timers, step
+instructions, fresh timers per step, and a visible exit button.
+
+Latest validation: **9 Flutter tests passed; analyzer clean; debug APK built and
+signature verified**. Tests cover offline startup, profile prefill, daily-log
+save/reopen, overlapping writes, self-care navigation/timers, old URL migration
+and guide asset availability. APK contents were independently checked for all
+15 referenced self-care assets, 11 fonts and the deployed HTTPS URL. Backend
+tests were not rerun for these Flutter-only changes (the previous run passed 19).
+
+Updated APK (version 1.0.1, build 2):
+`build/app/outputs/flutter-apk/FemWise-tracking-selfcare-v1.0.1.apk`.
+This is a debug-signed test APK, approximately 300 MiB, for Android 6 or newer.
+SHA-256: `3bbe64d268fb52b6caf1598df0cfa8e414953d41fd445f67552ca01eec8a38ed`.
+
+No Android device was connected. Camera pose matching, audio playback and device
+permissions still need a real-phone check. A store release needs your release
+keystore. Avoid clearing app data or uninstalling if you need to retain local
+guest history; this build has no cloud backup or cross-device synchronization.
 
 ## Completed
 

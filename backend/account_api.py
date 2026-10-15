@@ -43,7 +43,7 @@ async def lifespan(app):
         client.close()
 
 
-app = FastAPI(title="FemWise accounts (MongoDB)", lifespan=lifespan)
+app = FastAPI(title="FemWise API (MongoDB + ingredient scanner)", version="0.2.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -338,3 +338,8 @@ def save_log(day: date, body: LogWrite, user=Depends(current_user), db=Depends(d
     # including on standalone local MongoDB (no replica-set transaction required).
     db.users.update_one({"_id": user["_id"]}, {"$set": changes})
     return log
+
+
+# Keep the existing Render start command; serve ingredient review in this app.
+from ingredient_api import create_ingredient_router
+app.include_router(create_ingredient_router(current_user, auth_rate_limit))

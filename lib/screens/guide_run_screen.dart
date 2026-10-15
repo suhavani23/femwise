@@ -19,6 +19,7 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
   int currentStepIndex = 0;
   bool _cameraPermissionGranted = false;
   bool _permissionChecked = false;
+  bool _manualMode = false;
   bool _showRepeatNextOption = false;
   late int
       _breathingStepRepeatedFromIndex; // To store the index of the pose before breathing
@@ -64,10 +65,11 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
   void _initializeAudioPlayer() async {
     _audioPlayer = AudioPlayer();
     // Set looping to keep the music playing in the background
-    await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-    // Play the music from assets
     try {
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      if (!mounted) return;
       await _audioPlayer.play(AssetSource('music.mp3'));
+      if (!mounted) return;
       setState(() {
         _isMusicMuted = false; // Ensure it's not muted when it starts playing
       });
@@ -78,45 +80,47 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
   }
 
   void _toggleMusicMute() async {
-    if (_isMusicMuted) {
-      await _audioPlayer.resume(); // Unmute
-      print("Music unmuted.");
-    } else {
-      await _audioPlayer.pause(); // Mute
-      print("Music muted.");
+    try {
+      if (_isMusicMuted) {
+        await _audioPlayer.resume(); // Unmute
+        print("Music unmuted.");
+      } else {
+        await _audioPlayer.pause(); // Mute
+        print("Music muted.");
+      }
+      if (!mounted) return;
+      setState(() {
+        _isMusicMuted = !_isMusicMuted;
+      });
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Music is unavailable. You can continue the guide.')));
     }
-    setState(() {
-      _isMusicMuted = !_isMusicMuted;
-    });
   }
 
   Future<void> _checkCameraPermission() async {
-    final status = await Permission.camera.status;
-    if (!status.isGranted) {
-      final result = await Permission.camera.request();
-      if (result.isGranted) {
-        print("Camera permission granted");
-        setState(() {
-          _cameraPermissionGranted = true;
-          _permissionChecked = true;
-        });
-      } else {
-        print("Camera permission denied");
-        setState(() {
-          _cameraPermissionGranted = false;
-          _permissionChecked = true;
-        });
+    var granted = !steps.any((step) => step['type'] == 'pose');
+    try {
+      if (!granted) {
+        final status = await Permission.camera.status;
+        if (!mounted) return;
+        granted =
+            status.isGranted || (await Permission.camera.request()).isGranted;
       }
-    } else {
-      print("Camera permission already granted");
-      setState(() {
-        _cameraPermissionGranted = true;
-        _permissionChecked = true;
-      });
+    } catch (_) {
+      granted = false;
     }
+    if (!mounted) return;
+    setState(() {
+      _cameraPermissionGranted = granted;
+      _permissionChecked = true;
+    });
   }
 
   void _onStepCompleted() {
+    if (!mounted || currentStepIndex >= steps.length) return;
     setState(() {
       currentStepIndex++;
     });
@@ -209,19 +213,25 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
       );
     }
 
-    if (!_cameraPermissionGranted) {
+    if (!_cameraPermissionGranted && !_manualMode) {
       return Scaffold(
         appBar: AppBar(title: const Text("Permission Required")),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Text(
-              "Camera permission is required to continue. Please grant permission and restart the app.",
-              style: TextStyle(
-                  fontSize: 16,
-                  color:
-                      _purpleThemeColor), // Purple text for permission message
-              textAlign: TextAlign.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                    'Camera access enables pose matching. You can also follow the images and timers without a camera.',
+                    textAlign: TextAlign.center),
+                TextButton(
+                    onPressed: _checkCameraPermission,
+                    child: const Text('Retry camera permission')),
+                TextButton(
+                    onPressed: () => setState(() => _manualMode = true),
+                    child: const Text('Continue without camera')),
+              ],
             ),
           ),
         ),
@@ -263,9 +273,15 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
                             color: _purpleThemeColor), // Purple step title
                       ),
                       const SizedBox(height: 20),
-                      if (step['type'] == 'pose')
+                      Text(step['instructions'] ?? '',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 8),
+                      if (step['type'] == 'pose' && !_manualMode)
                         Expanded(
                           child: PoseMatchCameraWidget(
+                            key: ValueKey(currentStepIndex),
                             referenceImagePath: step['image'],
                             onPoseMatched: () {
                               print("Pose matched in GuideRunScreen");
@@ -276,9 +292,11 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
                       else // step['type'] == 'breathing'
                         Expanded(
                           child: BreathingStepWidget(
+                            key: ValueKey(currentStepIndex),
                             step: step,
-                            onStepCompleted:
-                                _onBreathingStepCompleted, // Call our specific handler
+                            onStepCompleted: step['type'] == 'pose'
+                                ? _onStepCompleted
+                                : _onBreathingStepCompleted,
                           ),
                         ),
                     ],
@@ -288,6 +306,14 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
             ],
           ),
           // Position the mute/unmute icon on top right
+          Positioned(
+            top: 16,
+            left: 16,
+            child: IconButton(
+                tooltip: 'Leave guide',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back, color: _purpleThemeColor)),
+          ),
           Positioned(
             top: 16, // Adjust top padding as needed to be "a little top"
             right: 16, // Adjust right padding as needed

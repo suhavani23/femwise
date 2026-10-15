@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:femwise/services/api_config.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:femwise/packed_food/pack_foods_scan.dart'; // Import your packed food screen
 import 'package:femwise/cooked_food/cooked_food_screen.dart'; // Import your cooked food screen
 import 'package:femwise/screens/home_screen.dart'; // To navigate back to Home
-import 'package:femwise/screens/daily_log_screen.dart'; // Import for DailyLogScreen
 import 'package:femwise/screens/symptom_selection_screen.dart'; // To navigate back to Symptom Selection
 
 class FoodOptionsScreen extends StatelessWidget {
@@ -51,9 +51,9 @@ class FoodOptionsScreen extends StatelessWidget {
                 _buildOptionCard(
                   context,
                   icon: Icons.qr_code_scanner,
-                  title: 'Scan Food (Packed)',
+                  title: 'Scan Ingredients',
                   subtitle:
-                      'Scan to analyze packed food for PCOS diet insights',
+                      'Scan a label, choose a photo or enter ingredients for an AI review',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -63,22 +63,24 @@ class FoodOptionsScreen extends StatelessWidget {
                   },
                   color: const Color(0xFF8EBF75), // Changed to a new color
                 ),
-                const SizedBox(height: 30),
-                _buildOptionCard(
-                  context,
-                  icon: Icons.fastfood, // A relevant icon for cooked food
-                  title: 'Analyze Cooked Food',
-                  subtitle:
-                      'Upload photos of home-cooked meals for PCOS dietary suggestions',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const FoodCaptureScreen(),
-                      ),
-                    );
-                  },
-                  color: Colors.blueAccent.shade700, // Changed to a new color
-                ),
+                if (ApiConfig.cookedFoodAnalysisEnabled) ...[
+                  const SizedBox(height: 30),
+                  _buildOptionCard(
+                    context,
+                    icon: Icons.fastfood, // A relevant icon for cooked food
+                    title: 'Analyze Cooked Food',
+                    subtitle:
+                        'Upload photos of home-cooked meals for PCOS dietary suggestions',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const FoodCaptureScreen(),
+                        ),
+                      );
+                    },
+                    color: Colors.blueAccent.shade700, // Changed to a new color
+                  ),
+                ],
               ],
             ),
           ),

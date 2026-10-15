@@ -37,6 +37,34 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.initState();
     WidgetsBinding.instance
         .addObserver(this); // Add observer for keyboard visibility
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final profile = await AccountService.instance.getProfile();
+      if (!mounted) return;
+      setState(() {
+        _lastPeriodStartDate =
+            DateTime.tryParse(profile['lastPeriodStartDate'] as String? ?? '');
+        _averagePeriodDurationController.text =
+            profile['averagePeriodDuration']?.toString() ?? '';
+        _typicalCycleLengthController.text =
+            profile['typicalCycleLength']?.toString() ?? '';
+        _reproductiveCategory = profile['reproductiveCategory'] as int?;
+        _hasPCOS = profile['hasPCOS'] as bool?;
+        _generalUnusualBleeding = profile['generalUnusualBleeding'] as bool?;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Unable to load your saved profile. Please reopen it.')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -103,7 +131,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: User not logged in.')),
+          const SnackBar(
+              content: Text('Please reopen the app to load local storage.')),
         );
       }
       setState(() {
@@ -127,9 +156,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       });
 
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(true);
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -138,9 +171,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         );
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+        });
     }
   }
 

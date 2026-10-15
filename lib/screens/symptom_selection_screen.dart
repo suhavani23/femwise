@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:femwise/services/account_service.dart'; // Required for logout button
 import 'guide_list_screen.dart'; // Ensure this path is correct
 import 'package:femwise/screens/home_screen.dart'; // To navigate back to Home
-import 'package:femwise/screens/daily_log_screen.dart'; // Import for DailyLogScreen
-import 'package:femwise/packed_food/pack_foods_scan.dart'; // Import your food scanner screen
+import 'package:femwise/services/api_config.dart';
 import 'package:femwise/food_options/food_options_screen.dart';
 
 class SymptomSelectionScreen extends StatefulWidget {
@@ -137,19 +135,20 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
                 );
               },
             ),
-            IconButton(
-              icon: Icon(Icons.restaurant_menu,
-                  color: Colors.grey.shade600,
-                  size: 28), // Changed to a general food icon
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
-                  ),
-                );
-              },
-            ),
+            if (ApiConfig.foodAnalysisEnabled)
+              IconButton(
+                icon: Icon(Icons.restaurant_menu,
+                    color: Colors.grey.shade600,
+                    size: 28), // Changed to a general food icon
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
+                    ),
+                  );
+                },
+              ),
             // No Spacer needed as there's no FAB
             IconButton(
               // This screen's icon (Meditation/Symptom Selection) should be selected
