@@ -2,7 +2,10 @@
 
 > Built by **Team Aether** for **Chaos**.
 
+> **Latest APK: guest mode.** The app opens without login/signup. Profiles and daily logs are saved locally on the phone. The MongoDB account API remains available for legacy accounts and optional backend services. See [SETUP_STATUS.md](SETUP_STATUS.md) for the current behavior and APK location.
+
 > Accounts, profiles and daily logs now use MongoDB + FastAPI. See [MongoDB setup](MONGODB_SETUP.md).
+> For this prepared checkout, start with [SETUP_STATUS.md](SETUP_STATUS.md): completed work, validation, startup commands and remaining account/device setup.
 
 <details>
 <summary><strong>📑 Table of Contents (click to expand)</strong></summary>
@@ -28,9 +31,9 @@ FemWise is a mobile app revolutionizing PCOS management. We offer **AI-driven tr
 
 ### 🗓️ Intelligent Tracking & Prediction
 
-* FemWise uses **AI-powered cycle tracking** with a visual calendar and daily symptom logging to predict periods and fertility windows.
+* FemWise includes a visual calendar, daily symptom logging and **formula-based estimates** for period dates and fertility windows.
 
-* **Machine learning models** adapt to your personal cycle patterns for more accurate and individualized predictions.
+* Current estimates use the last period date and the cycle length entered during onboarding. Adaptive cycle machine learning is future work.
 
 ### 🍏 AI-Powered Food Analysis
 

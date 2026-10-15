@@ -1,5 +1,14 @@
 # Run FemWise with MongoDB
 
+> The current APK uses offline guest tracking: profile and daily logs stay on
+> the phone, with no login required. The instructions below describe the separate
+> MongoDB API, whose existing account data is preserved. See SETUP_STATUS.md.
+
+For the prepared Windows checkout at `E:\Team Aether\Chaos\femwise`, see
+[SETUP_STATUS.md](SETUP_STATUS.md) first. Python dependencies, local MongoDB and
+Flutter are already available in ignored development folders. No Atlas account
+is required to use the local account service.
+
 Firebase Authentication and Firestore have been replaced by `backend/account_api.py`.
 The Flutter app calls this service for registration, login, profile updates and daily logs.
 MongoDB credentials belong only on the backend; never put a MongoDB URI in Flutter.
@@ -17,6 +26,7 @@ The backend creates the `femwise` database and these collections on first use:
 | --- | --- |
 | `users` | Normalized unique email, name, Argon2 password hash, profile and daily logs |
 | `sessions` | SHA-256 digest of a random bearer token, user ID, expiration |
+| `rateLimits` | Hashed client/route/window keys, attempt counts and expiration |
 
 Daily logs are stored under `users.dailyLogs.YYYY-MM-DD`. Updating a log and the
 associated cycle status is one atomic MongoDB document update, so a standalone
@@ -26,7 +36,7 @@ adding large log payloads or supporting unbounded histories. No images are store
 
 ## 2. Start the account API
 
-Open PowerShell in the project folder (the folder containing `pubspec.yaml`):
+Open PowerShell in the project folder containing `pubspec.yaml`:
 
 ```powershell
 cd backend
@@ -50,7 +60,7 @@ For Atlas, replace `MONGODB_URI` with your `mongodb+srv://...` URI. Then run:
 
 Visit <http://localhost:8002/health> and <http://localhost:8002/docs>.
 Startup fails if MongoDB is unreachable. The service creates a unique email index
-and a TTL index on sessions. It also checks expiration during every authenticated
+and TTL indexes on sessions and rate-limit windows. It also checks expiration during every authenticated
 request, independent of MongoDB's asynchronous TTL cleanup.
 
 ## 3. Run Flutter on Android
@@ -74,9 +84,10 @@ restoring connectivity so the server can revoke the session.
 
 Firebase configuration and Firebase console setup are no longer required.
 `flutter pub get` regenerates native plugin registration after dependency changes.
-The existing repo's Android wrapper/build, missing logo, and pose-package issues
-still need resolving if encountered; this migration does not establish a passing
-Flutter build without the Flutter SDK and Android toolchain.
+The Gradle wrapper, missing logo references and pose image API issues have been
+repaired. Consult SETUP_STATUS.md for actual validation results and outstanding
+device/build requirements. Use `scripts/Flutter.ps1` for the local Android
+toolchain; it isolates settings and avoids Windows desktop plugin symlinks.
 
 ## API contract
 
@@ -85,6 +96,8 @@ Flutter build without the Flutter SDK and Android toolchain.
 | POST | `/auth/register` | `{name, email, password}` → token and user |
 | POST | `/auth/login` | `{email, password}` → token and user |
 | POST | `/auth/logout` | Revoke current bearer session |
+| POST | `/auth/forgot-password` | Request a recovery email with `{email}` |
+| POST | `/auth/reset-password` | Set a password using `{token, password}` |
 | GET | `/me` | Profile of the authenticated user |
 | PATCH | `/me` | Update allowed onboarding/profile fields |
 | GET | `/me/daily-logs/YYYY-MM-DD` | Fetch a day; 404 when absent |
@@ -107,11 +120,12 @@ the imported data and account access have been verified.
 ## Food analysis remains separate
 
 Run `main:app` on port 8000 and `main2:app` on port 8001 with their own dependencies
-and configured Flutter food endpoints. They still require Neo4j, Gemini, Ollama
-(packaged food), and populated ChromaDB (cooked food). The account API does not
-import these AI modules. Replacing Firebase does not restore their missing datasets
-or update the retired Gemini model. Food endpoints retain their existing access
-behavior; bearer authentication was added to the account service only.
+and configured Flutter food endpoints. Install `requirements-food.txt` first.
+They require Neo4j, Gemini, Ollama (packaged food), and populated ChromaDB (cooked
+food). Backend settings now come from `.env`, and Gemini uses the Google Gen AI
+SDK with `GEMINI_MODEL` rather than the retired hardcoded model. Both food routes
+now require the same bearer sessions as the account API. The account API remains
+independent of food dependencies. The original datasets are still required.
 
 ## Verification
 
@@ -121,8 +135,12 @@ cd backend
 .\.venv-accounts\Scripts\python.exe -m pytest tests -q
 ```
 
-Tests use an isolated MongoDB mock, not your database. They cover signup, hashing,
+By default, tests use an isolated MongoDB mock. Set `TEST_MONGODB_URI` to test a
+real server; this creates and deletes only randomly named `pcosense_test_*`
+databases. Tests cover signup, hashing,
 duplicate emails, login, session expiration/revocation, user isolation, onboarding,
-log overwrite behavior and invalid requests. Also verify against a real MongoDB
-instance and Android device before release. Before public deployment, add TLS,
-authentication rate limits, account recovery and operational monitoring/backups.
+log overwrite behavior, invalid requests, rate limits, password recovery,
+session invalidation and backup/restore. Actual validation is in SETUP_STATUS.md.
+Before release, complete Android device testing and production TLS/monitoring.
+Recovery requires your SMTP settings. Account exports are available through
+`backup_accounts.py`; they omit sessions and pending password-reset credentials.
