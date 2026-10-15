@@ -1,8 +1,11 @@
-import google.generativeai as genai  # Import the Google Generative AI client library for interacting with models like Gemini.
+from food_config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, CHROMA_DB_PATH, COLLECTION_NAME, OLLAMA_API_BASE_URL, OLLAMA_MODEL_NAME_EXTRACTION)
+from food_security import configure_food_api
+from account_api import current_user
+from food_llm import generate_text
 import re  # Import the regular expression module for pattern matching, used in 'inject_concentration_risk'.
 import time  # Import the time module for time-related functions, specifically used for rate limiting API calls.
-from fastapi import FastAPI, HTTPException  # Import FastAPI for building the web API and HTTPException for error handling.
-from pydantic import BaseModel  # Import BaseModel from Pydantic for data validation and serialization.
+from fastapi import Depends, FastAPI, HTTPException  # Import FastAPI for building the web API and HTTPException for error handling.
+from pydantic import BaseModel, Field
 import os  # Import the os module for interacting with the operating system, though not directly used in this specific snippet.
 import json  # Import the json module for working with JSON data, though not directly used for parsing in this snippet.
 import ollama  # Import the Ollama client library for interacting with local LLMs (like for ingredient extraction).
@@ -13,19 +16,16 @@ import logging  # Import logging for logging messages, used for debugging databa
 
 # --- Initialize FastAPI App ---
 app = FastAPI()
+configure_food_api(app)
 
 # --- Configure Ollama Model ---
 # Ensure Ollama server is running at this address
-OLLAMA_API_BASE_URL = "http://localhost:11434"  # Default Ollama API URL
-OLLAMA_MODEL_NAME_EXTRACTION = "adrienbrault/nous-hermes2pro:Q8_0"  # Your specific Ollama model for ingredient extraction.
 
 # Initialize the Ollama client
 ollama_client = ollama.Client(host=OLLAMA_API_BASE_URL)
 
 # --- Configure Neo4j Connection ---
-NEO4J_URI = os.environ.get("NEO4J_URI", "neo4j://127.0.0.1:7687")
-NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
+
 
 driver = None  # Initialize driver globally to be set upon startup.
 
@@ -42,13 +42,16 @@ async def startup_db_client():
         driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
         # Verify connectivity by running a simple query
         driver.verify_connectivity()
+        with driver.session() as session:
+            if session.run("MATCH (i:Ingredient) RETURN count(i) AS count").single()["count"] == 0:
+                raise RuntimeError("Import the ingredient knowledge graph before starting food analysis.")
         print("\n" + "="*50)
         print("Successfully connected to Neo4j!")
         print(f"Neo4j Server Info: {driver.get_server_info()}")
         print("="*50 + "\n")
     except Exception as e:
         print(f"\n!!! Failed to connect to Neo4j: {e} !!!\n")
-        # Consider logging this error more robustly in production
+        raise RuntimeError('Packaged food requires a reachable, populated Neo4j database.') from e
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
@@ -59,7 +62,7 @@ async def shutdown_db_client():
 
 # --- Pydantic Model for Request ---
 class TextExtractionRequest(BaseModel):
-    text: str
+    text: str = Field(min_length=1, max_length=20000)
 
 # --- Helper Functions for Neo4j Interaction ---
 
@@ -236,6 +239,7 @@ async def call_llm_for_ingredient_extraction(raw_text: str) -> list[str]:
         print(f"\n❌ Error calling Ollama: {e}")
         return []
 
+<<<<<<< HEAD
 # --- Generative Model Setup (from your existing LLM script) ---
 GEMINI_API_KEYS = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()] or [""]  # Comma-separated keys from the environment
 
@@ -246,46 +250,17 @@ genai.configure(api_key=current_api_key)
 # --- Generative Model Setup ---
 model = genai.GenerativeModel('gemini-1.5-flash')
 
+=======
+>>>>>>> f1cfbd8 (feat(ai): integrate OpenAI Chat completions with Gemini fallback and local Ollama extraction)
 # --- NEW: LLM Function for Precise Classification ---
 async def get_precise_classification_from_llm(raw_classification_text: str | None) -> str:
-    """
-    Uses a dedicated LLM call to precisely classify an ingredient's category
-    (good, bad, moderate, unknown) from a descriptive text or None.
-    """
-    if raw_classification_text is None or raw_classification_text.strip().lower() == 'unknown':
-        return 'unknown' # Handle None or explicit 'unknown' directly
-
-    prompt_content = (
-        f"Analyze the following ingredient classification description and determine its primary category "
-        f"for PCOS relevance. Respond with ONLY one of these single words: 'good', 'bad', 'moderate', or 'unknown'.\n\n"
-        f"Description: \"\"\"{raw_classification_text}\"\"\"\n\n"
-        f"Category:"
-    )
-
-    try:
-        # Use a fresh instance of the model for this specific task if needed, or global.
-        # For simplicity, using the existing global model.
-        response = model.generate_content(
-            prompt_content,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.0, # Keep temperature low for deterministic classification
-                max_output_tokens=10, # Expect a short output
-            )
-        )
-        # Clean the response to ensure it's one of the expected categories
-        classified_word = response.text.strip().lower()
-        if 'good' in classified_word:
-            return 'good'
-        elif 'bad' in classified_word:
-            return 'bad'
-        elif 'moderate' in classified_word or 'potentially' in classified_word:
-            return 'moderate'
-        else:
-            return 'unknown'
-
-    except Exception as e:
-        print(f"\n❌ Error during precise classification LLM call: {e}")
-        return 'unknown' # Default to unknown on error
+    if not raw_classification_text or raw_classification_text.strip().lower() == "unknown":
+        return "unknown"
+    prompt = ("Classify this ingredient description for PCOS relevance. "
+              "Reply with exactly one word: good, bad, moderate, or unknown.\n"
+              + raw_classification_text)
+    result = generate_text(prompt, temperature=0.0, max_output_tokens=128).strip().lower()
+    return result if result in {"good", "bad", "moderate", "unknown"} else "unknown"
 
 # MODIFIED SYSTEM PROMPT: Adjusted to expect concise classification
 SYSTEM_PROMPT = """
@@ -334,59 +309,10 @@ TIME_WINDOW = 60  # seconds
 
 request_timestamps = []  # To store the timestamps of each request
 
-def enforce_rate_limit():
-    global request_timestamps
-    current_time = time.time()
-
-    # Remove timestamps older than the time window
-    request_timestamps = [t for t in request_timestamps if current_time - t < TIME_WINDOW]
-
-    # If we've made too many requests in the current window, wait
-    if len(request_timestamps) >= MAX_REQUESTS_PER_MINUTE:
-        time_to_wait = TIME_WINDOW - (current_time - request_timestamps[0])
-        if time_to_wait > 0:
-            print(f"Rate limit hit. Waiting for {time_to_wait:.2f} seconds...")
-            time.sleep(time_to_wait)
-            current_time = time.time()
-            request_timestamps = [t for t in request_timestamps if current_time - t < TIME_WINDOW]
-
-    # Add the current request's timestamp
-    request_timestamps.append(time.time())
 
 
 def generate_model_content(user_content_str):
-    global current_key_index, current_api_key, model
-    full_prompt = SYSTEM_PROMPT + "\n\n" + user_content_str
-
-    while current_key_index < len(GEMINI_API_KEYS):
-        try:
-            enforce_rate_limit()
-
-            genai.configure(api_key=current_api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
-
-            response = model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=1024,
-                )
-            )
-            return response.text
-        except Exception as e:
-            error_message = str(e).lower()
-            if "quota" in error_message or "rate limit" in error_message or "resource exhausted" in error_message:
-                print(f"Quota exhausted for key {current_key_index + 1} ({current_api_key[:5]}...): {e}")
-                current_key_index += 1
-                if current_key_index < len(GEMINI_API_KEYS):
-                    current_api_key = GEMINI_API_KEYS[current_key_index]
-                    print(f"Switching to next API key: {current_key_index + 1}/{len(GEMINI_API_KEYS)}")
-                else:
-                    return "Error: All API keys exhausted. Generation stopped."
-            else:
-                return f"Error: Could not generate content. Reason: {e}"
-
-    return "Error: All API keys exhausted. Generation stopped."
+    return generate_text(SYSTEM_PROMPT + "\n\n" + user_content_str)
 
 def inject_concentration_risk(user_content):
     """
@@ -464,7 +390,7 @@ def inject_concentration_risk(user_content):
 
 
 # --- FastAPI Endpoint ---
-@app.post("/extract_ingredients")
+@app.post("/extract_ingredients", dependencies=[Depends(current_user)])
 async def extract_ingredients_endpoint(request: TextExtractionRequest):
     """
     Endpoint that processes text and returns matched ingredients

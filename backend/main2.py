@@ -1,30 +1,30 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from food_config import (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, CHROMA_DB_PATH, COLLECTION_NAME, OLLAMA_API_BASE_URL, OLLAMA_MODEL_NAME_EXTRACTION)
+from food_security import configure_food_api
+from account_api import current_user
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import os
 import json
 import re
 import math
 from neo4j import GraphDatabase
-import google.generativeai as genai
+from food_llm import generate_text
 import time # Import the time module for sleeping
 import logging
 import chromadb # Import chromadb
 
 # --- Initialize FastAPI App ---
 app = FastAPI()
+configure_food_api(app)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # --- Configuration for ChromaDB and Neo4j ---
-CHROMA_DB_PATH = os.environ.get("CHROMA_DB_PATH", "chroma_data")  # Directory holding the ChromaDB data
-COLLECTION_NAME = "cooked_dishes" # This is the static collection name, as per your code
 
 # --- Neo4j Connection Details ---
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USERNAME = os.environ.get("NEO4J_USERNAME", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
+
 
 # Global Neo4j driver
 neo4j_driver = None
@@ -36,6 +36,11 @@ async def startup_db_client():
     try:
         neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
         neo4j_driver.verify_connectivity()
+        with neo4j_driver.session() as session:
+            if session.run("MATCH (i:Ingredient) RETURN count(i) AS count").single()["count"] == 0:
+                raise RuntimeError("Import the ingredient knowledge graph before starting food analysis.")
+        if chroma_client.get_collection(COLLECTION_NAME).count() == 0:
+            raise RuntimeError("Import a populated cooked_dishes ChromaDB dataset before starting cooked food analysis.")
         logger.info("Successfully connected to Neo4j.")
     except Exception as e:
         logger.error(f"Failed to connect to Neo4j: {e}")
@@ -270,6 +275,7 @@ def get_ingredient_attributes_from_neo4j(ingredient_name: str, session) -> dict:
     return None # No useful match found after all attempts
 
 
+<<<<<<< HEAD
 # --- Generative Model Setup (from your existing LLM script) ---
 GEMINI_API_KEYS = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()] or [""]  # Comma-separated keys from the environment
 
@@ -277,6 +283,8 @@ current_key_index = 0
 # Initialize current_api_key, will be updated by configure_gemini()
 current_api_key = GEMINI_API_KEYS[current_key_index]
 
+=======
+>>>>>>> f1cfbd8 (feat(ai): integrate OpenAI Chat completions with Gemini fallback and local Ollama extraction)
 # Modified SYSTEM PROMPT (as per your request)
 SYSTEM_PROMPT = """
 You are an expert AI assistant for a PCOS-focused nutrition app. Your task is to analyze ingredient information from a food product and provide a clear, concise, and helpful verdict and explanation for women with PCOS.
@@ -324,111 +332,22 @@ TIME_WINDOW = 60 # seconds
 
 request_timestamps = [] # To store the timestamps of each request
 
-def enforce_rate_limit():
-    global request_timestamps
-    current_time = time.time()
 
-    # Remove timestamps older than the time window
-    request_timestamps = [t for t in request_timestamps if current_time - t < TIME_WINDOW]
-
-    # If we've made too many requests in the current window, wait
-    if len(request_timestamps) >= MAX_REQUESTS_PER_MINUTE:
-        time_to_wait = TIME_WINDOW - (current_time - request_timestamps[0])
-        if time_to_wait > 0:
-            logger.warning(f"Rate limit hit. Waiting for {time_to_wait:.2f} seconds...")
-            time.sleep(time_to_wait)
-            current_time = time.time()
-            request_timestamps = [t for t in request_timestamps if current_time - t < TIME_WINDOW]
-    
-    # Add the current request's timestamp
-    request_timestamps.append(time.time())
-
-def configure_gemini():
-    """Configures the Gemini API with the current key."""
-    global current_api_key, current_key_index
-    if current_key_index < len(GEMINI_API_KEYS):
-        current_api_key = GEMINI_API_KEYS[current_key_index]
-        genai.configure(api_key=current_api_key)
-        logger.info(f"Using Gemini API key index: {current_key_index + 1}/{len(GEMINI_API_KEYS)}")
-        return True
-    else:
-        logger.error("No more Gemini API keys available.")
-        return False
 
 # Initial Gemini configuration on startup
-configure_gemini()
 
 # NEW: LLM Function for Precise Classification (copied from main.py)
 async def get_precise_classification_from_llm(raw_classification_text: str | None) -> str:
-    """
-    Uses a dedicated LLM call to precisely classify an ingredient's category
-    (good, bad, moderate, unknown) from a descriptive text or None.
-    """
-    if raw_classification_text is None or raw_classification_text.strip().lower() == 'unknown':
-        return 'unknown' # Handle None or explicit 'unknown' directly
-
-    prompt_content = (
-        f"Analyze the following ingredient classification description and determine its primary category "
-        f"for PCOS relevance. Respond with ONLY one of these single words: 'good', 'bad', 'moderate', or 'unknown'.\n\n"
-        f"Description: \"\"\"{raw_classification_text}\"\"\"\n\n"
-        f"Category:"
-    )
-
-    try:
-        model_classification = genai.GenerativeModel('gemini-1.5-flash') # Use a separate model instance for this specific task
-        response = model_classification.generate_content(
-            prompt_content,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.0, # Keep temperature low for deterministic classification
-                max_output_tokens=10, # Expect a short output
-            )
-        )
-        # Clean the response to ensure it's one of the expected categories
-        classified_word = response.text.strip().lower()
-        if 'good' in classified_word:
-            return 'good'
-        elif 'bad' in classified_word:
-            return 'bad'
-        elif 'moderate' in classified_word or 'potentially' in classified_word:
-            return 'moderate'
-        else:
-            return 'unknown'
-
-    except Exception as e:
-        logger.error(f"Error during precise classification LLM call: {e}")
-        return 'unknown' # Default to unknown on error
+    if not raw_classification_text or raw_classification_text.strip().lower() == "unknown":
+        return "unknown"
+    prompt = ("Classify this ingredient description for PCOS relevance. "
+              "Reply with exactly one word: good, bad, moderate, or unknown.\n"
+              + raw_classification_text)
+    result = generate_text(prompt, temperature=0.0, max_output_tokens=128).strip().lower()
+    return result if result in {"good", "bad", "moderate", "unknown"} else "unknown"
 
 def generate_model_content(user_content_str):
-    global current_key_index, current_api_key # Keep them as global
-    full_prompt = SYSTEM_PROMPT + "\n\n" + user_content_str
-    
-    # Ensure a model instance is created with the current key
-    model = genai.GenerativeModel('gemini-1.5-flash') 
-
-    while True: # Loop to try with different keys
-        try:
-            enforce_rate_limit() # Apply rate limiting before each request
-
-            response = model.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=1024,
-                )
-            )
-            return response.text
-        except Exception as e:
-            error_message = str(e).lower()
-            if "quota" in error_message or "rate limit" in error_message or "resource exhausted" in error_message:
-                logger.warning(f"Quota exhausted for key {current_key_index + 1} ({current_api_key[:5]}...): {e}")
-                current_key_index += 1
-                if not configure_gemini(): # Try to switch to the next key
-                    return "Error: All API keys exhausted. Generation stopped."
-            else:
-                logger.error(f"Error generating content with Gemini: {e}")
-                raise HTTPException(status_code=500, detail=f"Error generating content with Gemini: {e}")
-    
-    return "Error: All API keys exhausted. Generation stopped."
+    return generate_text(SYSTEM_PROMPT + "\n\n" + user_content_str)
 
 
 def inject_concentration_risk(user_content):
@@ -625,18 +544,20 @@ class AnalysisResponse(BaseModel):
     ingredients_summary: list
 
 # --- FastAPI Endpoint for Food Data Upload and Analysis ---
-@app.post("/upload_food_data/", response_model=AnalysisResponse)
+@app.post("/upload_food_data/", response_model=AnalysisResponse, dependencies=[Depends(current_user)])
 async def upload_food_data(
     file: UploadFile = File(...), # Image file (received but not used by the current analysis logic)
-    dish_name: str = Form(...) # Dish name from the Flutter app
+    dish_name: str = Form(..., min_length=1, max_length=200)
 ):
+    dish_name = dish_name.strip()
+    if not dish_name:
+        await file.close()
+        raise HTTPException(422, "Enter a dish name.")
+    if file.size is not None and file.size > 10 * 1024 * 1024:
+        await file.close()
+        raise HTTPException(413, "Use an image smaller than 10 MB.")
+    await file.close()
     logger.info(f"Received request for dish: '{dish_name}'")
-
-    try:
-        pass
-    except Exception as e:
-        logger.error(f"Error handling uploaded file: {e}")
-        raise HTTPException(status_code=500, detail=f"Could not process uploaded file: {e}")
 
     # 1. Fetch data from ChromaDB and Neo4j using the provided dish_name
     dish_data = await get_dish_ingredients_and_attributes(dish_name) # Await the async function
