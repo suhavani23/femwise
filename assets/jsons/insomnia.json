@@ -1,0 +1,78 @@
+[
+  {
+    "title": "Softening into Stillness for Sleep",
+    "goal": "Calm the nervous system and prepare the body for sleep.",
+    "steps": [
+      {
+        "step": 1,
+        "type": "pose",
+        "title": "Comfortable Lying Down (Savasana Variation)",
+        "duration_minutes": 3,
+        "instructions": "Lie on your back with legs extended, arms resting by your side, palms up. Support neck and knees with pillows. Close your eyes and take a gentle sigh.",
+        "image": "assets/pose_images_insomnia/savasana.jpeg"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Gentle Sighing Breath",
+        "duration_minutes": 2,
+        "instructions": "Inhale gently through the nose. Exhale slowly through the mouth with a soft sigh. Repeat 3–5 times, then let the breath return to normal.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      },
+      {
+        "step": 3,
+        "type": "pose",
+        "title": "Gentle Progressive Relaxation (Legs & Hips)",
+        "duration_minutes": 3,
+        "instructions": "While lying still, tense and release: feet, calves, thighs, and hips. Inhale to create gentle tension for 2 counts, exhale and release completely. Let your lower body feel heavy and grounded.",
+        "image": "assets/pose_images_insomnia/PMR.jpg"
+      },
+      {
+        "step": 4,
+        "type": "breathing",
+        "title": "Counting Backward Breath",
+        "duration_minutes": 1,
+        "instructions": "Observe natural breathing. On each exhale, mentally count down from 10 to 1. If distracted, gently return to the last number you remember. Let the breath lull you toward sleep.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      }
+    ]
+  },
+  {
+    "title": "Peaceful Body Scan for Deep Rest",
+    "goal": "Release tension and quiet the mind for profound relaxation and sleep.",
+    "steps": [
+      {
+        "step": 1,
+        "type": "pose",
+        "title": "Supported Lying Down (Savasana Variation)",
+        "duration_minutes": 3,
+        "instructions": "Lie comfortably in bed with pillows under your knees and neck. Use a blanket for warmth. Let arms relax with palms facing up. Close your eyes and settle in.",
+        "image": "assets/pose_images_insomnia/relax.jpg"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Smooth Belly Breathing",
+        "duration_minutes": 2,
+        "instructions": "Breathe in slowly through the nose, letting your belly rise. Breathe out through the nose, belly softens. Let the breath be smooth and quiet like a wave.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      },
+      {
+        "step": 3,
+        "type": "pose",
+        "title": "Mindful Body Scan (Head to Toes)",
+        "duration_minutes": 5,
+        "instructions": "Gently bring your awareness to each part of your body, starting from the forehead, eyes, jaw, neck, shoulders... down to toes. With each out-breath, silently say 'relax' and release tension in that part. Move slowly and stay still.",
+        "image": "assets/pose_images_insomnia/bodyscan.jpg"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Smooth Belly Breathing",
+        "duration_minutes": 2,
+        "instructions": "Breathe in slowly through the nose, letting your belly rise. Breathe out through the nose, belly softens. Let the breath be smooth and quiet like a wave.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      }
+    ]
+  }
+]

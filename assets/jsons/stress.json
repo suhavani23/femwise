@@ -1,0 +1,78 @@
+[
+  {
+    "title": "Gentle Grounding & Breath Flow",
+    "goal": "To calm the nervous system and ease stress for PCOS women through simple poses and guided breathing.",
+    "steps": [
+      {
+        "step": 1,
+        "type": "pose",
+        "title": "Easy Pose (Sukhasana)",
+        "instructions": "Sit cross-legged on the floor or on a cushion. Keep your spine straight, shoulders relaxed, and hands resting on knees, palms down.",
+        "duration_minutes": 2,
+        "image": "assets/pose_images_stress/easy_pose_sukhasana.jpg"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Centered Breath",
+        "instructions": "Inhale slowly through the nose for 4 counts, then exhale gently for 6 counts. Repeat for 6 rounds.",
+        "duration_minutes": 2,
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      },
+      {
+        "step": 3,
+        "type": "pose",
+        "title": "Seated Spinal Flex (Modified Cat-Cow)",
+        "instructions": "While seated, inhale and arch your back slightly, lifting the chest. Exhale and round your spine, tucking chin toward chest. Repeat with breath.",
+        "duration_minutes": 2,
+        "image": "assets/pose_images_stress/seated_spinal_flex_modified_cat-cow.jpg"
+      },
+      {
+        "step": 4,
+        "type": "breathing",
+        "title": "Heart-Opening Breath",
+        "instructions": "Breathe in deeply through the nose, expanding the chest. Breathe out through the mouth, releasing stress. Repeat slowly for 5 rounds.",
+        "duration_minutes": 2,
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      }
+    ]
+  },
+  {
+    "title": "Relax & Release with Mindful Movement",
+    "goal": "To release physical tension in hips and back, reduce emotional stress through deep breathing.",
+    "steps": [
+      {
+        "step": 1,
+        "type": "pose",
+        "title": "Child's Pose (Balasana)",
+        "instructions": "Kneel on the floor, bring big toes together, knees apart. Sit back on heels and stretch arms forward, forehead resting on mat or cushion.",
+        "duration_minutes": 3,
+        "image": "assets/pose_images_stress/child's_pose_balasana.jpg"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Calming Breath",
+        "instructions": "Inhale deeply through nose for 4 counts, exhale through nose for 6 counts. Feel the breath press into your thighs. Repeat.",
+        "duration_minutes": 2,
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      },
+      {
+        "step": 3,
+        "type": "pose",
+        "title": "Seated Forward Fold (Paschimottanasana Prep)",
+        "instructions": "Sit with legs extended forward, spine long. Inhale and reach arms up, exhale and fold from hips toward your shins or feet.",
+        "duration_minutes": 2,
+        "image": "assets/pose_images_stress/seated_forward_fold_paschimottanasana_prep.jpg"
+      },
+      {
+        "step": 4,
+        "type": "breathing",
+        "title": "Release Breath",
+        "instructions": "Inhale and lengthen spine, exhale and fold slightly deeper. Gentle and controlled movement with each breath.",
+        "duration_minutes": 2,
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      }
+    ]
+  }
+]

@@ -1,0 +1,78 @@
+[
+  {
+    "title": "Gentle Breath & Body Awareness",
+    "goal": "Release gentle tension and calm the mind through focused breath.",
+    "steps": [
+      {
+        "step": 1,
+        "type": "pose",
+        "title": "Comfortable Seated Pose (Chair or Cushion)",
+        "duration_minutes": 3,
+        "instructions": "Sit on a chair or cushion. Hands on lap. Spine tall, shoulders relaxed. Eyes closed or soft gaze.",
+        "image": "assets/pose_images_anxiety/image.png"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Natural Belly Breathing",
+        "duration_minutes": 2,
+        "instructions": "Breathe in gently through the nose, belly expands. Breathe out slowly through the nose, belly softens. Let breath flow naturally.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      },
+      {
+        "step": 3,
+        "type": "pose",
+        "title": "Cat-Cow Pose",
+        "duration_minutes": 1,
+        "instructions": "Come to hands and knees. Inhale, arch back and lift head (Cow). Exhale, round spine and tuck chin (Cat). Flow gently with breath.",
+        "image": "assets/pose_images_anxiety/catcow.jpeg"
+      },
+      {
+        "step": 4,
+        "type": "breathing",
+        "title": "Shoulder Roll Breathing",
+        "duration_minutes": 1,
+        "instructions": "Inhale to lift shoulders. Exhale to roll them down. Repeat slowly.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      }
+    ]
+  },
+  {
+    "title": "Soothing Relaxation & Grounding",
+    "goal": "Create a sense of safety and deep inner peace.",
+    "steps": [
+      {
+        "step": 1,
+        "type": "pose",
+        "title": "Supported Seated Pose with Hand on Heart/Belly",
+        "duration_minutes": 4,
+        "instructions": "Sit comfortably. One hand on heart, one on belly. Feel warmth and gentle movement under hands. Eyes closed or soft gaze.",
+        "image": "assets/pose_images_anxiety/hand.jpeg"
+      },
+      {
+        "step": 2,
+        "type": "breathing",
+        "title": "Heart-Belly Breath",
+        "duration_minutes": 1,
+        "instructions": "Inhale softly through nose. Feel hands rise. Exhale through nose. Feel hands fall. Stay connected to breath.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      },
+      {
+        "step": 3,
+        "type": "pose",
+        "title": "Child's Pose (Balasana)",
+        "duration_minutes": 1,
+        "instructions": "Kneel on the floor, big toes touching, knees wide. Sit back on heels, fold forward, forehead to floor. Arms extended or alongside body.",
+        "image": "assets/pose_images_anxiety/balasana.jpg"
+      },
+      {
+        "step": 4,
+        "type": "breathing",
+        "title": "Neck Nod Breathing",
+        "duration_minutes": 1,
+        "instructions": "Inhale to hold chin up. Exhale gently to lower chin. Repeat mindfully 3-5 times.",
+        "image": "assets/breathing_gif/box-breathing-technique.gif"
+      }
+    ]
+  }
+]
