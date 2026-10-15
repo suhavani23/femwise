@@ -73,15 +73,25 @@ def review_label(text: str) -> LabelReview:
         # Imported lazily so a missing AI dependency cannot take tracking offline.
         from openai import OpenAI
         with OpenAI(api_key=key, timeout=60.0, max_retries=0) as client:
-            response = client.responses.parse(
-                model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
-                input=[{"role": "system", "content": SYSTEM_PROMPT},
-                       {"role": "user", "content": text}],
-                text_format=LabelReview,
-                max_output_tokens=4096,
-                store=False,
-            )
-        review = response.output_parsed
+            model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+            messages = [{"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": text}]
+            try:
+                response = client.responses.parse(
+                    model=model, input=messages, text_format=LabelReview,
+                    max_output_tokens=4096, store=False)
+                review = response.output_parsed
+            except Exception as error:
+                # Existing project keys may grant Chat Completions but not Responses.
+                # Both calls still enforce the same key's permissions. Never retry
+                # an explicit location restriction through another API method.
+                if (getattr(error, 'status_code', None) != 403 or
+                        getattr(error, 'code', None) == 'unsupported_country_region_territory'):
+                    raise
+                completion = client.chat.completions.parse(
+                    model=model, messages=messages, response_format=LabelReview,
+                    max_completion_tokens=4096, store=False)
+                review = completion.choices[0].message.parsed
         if review is None:
             raise HTTPException(422, "Unable to review this label. Please scan a clear ingredient list.")
         # Validate even mocked/custom provider output before returning it to the app.
@@ -112,7 +122,7 @@ def review_label(text: str) -> LabelReview:
             message = 'The AI service rejected the server API key. The server owner needs to update it.'
         elif status == 403:
             reason = 'ai_access_denied'
-            message = 'The AI account does not have permission to use the configured model.'
+            message = 'The AI provider denied this server request. The API account access or server region needs checking.'
         elif status == 404:
             reason = 'ai_model_not_found'
             message = 'The configured AI model is not available. The server model setting needs updating.'
@@ -134,6 +144,7 @@ def create_ingredient_router(current_user, auth_rate_limit):
                 "analysis_configured": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
                 "sdk_available": importlib.util.find_spec('openai') is not None,
                 "model": os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
+                "chat_compatibility": True,
                 "cooked_food": False, "version": 1}
 
     @router.post("/extract_ingredients", response_model=LabelResult,

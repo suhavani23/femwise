@@ -75,6 +75,24 @@ def test_auth_validation_and_status(api_scanner, monkeypatch):
     assert client.get('/health').status_code == 200
 
 
+def test_chat_only_key_uses_existing_api_method(api_scanner, monkeypatch):
+    client, headers, _ = api_scanner
+    paths = []
+    def transport(request):
+        paths.append(request.url.path)
+        if request.url.path.endswith('/responses'):
+            return httpx.Response(403, json={'error': {'message': 'Endpoint permission denied', 'code': 'insufficient_permissions'}})
+        return httpx.Response(200, json={'id': 'chatcmpl_test', 'object': 'chat.completion',
+            'created': 0, 'model': 'gpt-4o-mini', 'choices': [{'index': 0,
+            'finish_reason': 'stop', 'message': {'role': 'assistant', 'content': json.dumps(sample())}}]})
+    sdk = openai.OpenAI
+    monkeypatch.setattr(openai, 'OpenAI', lambda **kw:
+        sdk(**kw, http_client=httpx.Client(transport=httpx.MockTransport(transport))))
+    result = client.post('/extract_ingredients', headers=headers, json={'text': 'Ingredients: oats'})
+    assert result.status_code == 200, result.text
+    assert paths == ['/v1/responses', '/v1/chat/completions']
+
+
 @pytest.mark.parametrize('parsed', [None, LabelReview(ingredients=[], summary='No list', limitations=[])])
 def test_refusal_and_no_ingredients_are_actionable(api_scanner, monkeypatch, parsed):
     mock_sdk(monkeypatch, parsed)
