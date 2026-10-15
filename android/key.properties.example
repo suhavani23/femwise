@@ -1,0 +1,6 @@
+# Copy to key.properties after generating your own upload keystore.
+# Use forward slashes in the Windows path. Keep the real file and keystore private.
+storeFile=E:/private/pcosense-upload.jks
+storePassword=replace-with-your-keystore-password
+keyAlias=upload
+keyPassword=replace-with-your-key-password
