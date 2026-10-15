@@ -98,3 +98,19 @@ def test_scans_share_mongodb_rate_limit(api_scanner, monkeypatch):
     for _ in range(2):
         assert client.post('/extract_ingredients', headers=headers, json={'text': 'oats'}).status_code == 200
     assert client.post('/extract_ingredients', headers=headers, json={'text': 'oats'}).status_code == 429
+
+
+@pytest.mark.parametrize('status,code,reason', [(401, None, 'ai_key_rejected'),
+    (429, 'insufficient_quota', 'ai_credit_exhausted')])
+def test_provider_configuration_failures_are_identifiable_without_secrets(api_scanner, monkeypatch, status, code, reason):
+    class ProviderFailure(Exception):
+        status_code = status
+    error = ProviderFailure('private provider payload sk-test-not-real')
+    error.code = code
+    def fail(**kw): raise error
+    monkeypatch.setattr(openai, 'OpenAI', fail)
+    client, headers, _ = api_scanner
+    result = client.post('/extract_ingredients', headers=headers, json={'text': 'oats'})
+    assert result.status_code == 503
+    assert result.headers['X-FemWise-Error'] == reason
+    assert 'sk-test' not in result.text

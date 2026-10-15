@@ -4,6 +4,7 @@ Uses OpenAI Structured Outputs; no local Ollama, Neo4j or Chroma service.
 https://developers.openai.com/api/docs/guides/structured-outputs
 """
 import logging
+import importlib.util
 import os
 from typing import Literal
 
@@ -96,7 +97,32 @@ def review_label(text: str) -> LabelReview:
     except Exception as error:
         # Never return raw provider errors, OCR text or credentials in logs/results.
         logger.warning("Ingredient provider unavailable (%s)", type(error).__name__)
-        raise HTTPException(503, "Ingredient analysis is temporarily unavailable. Please try again later.") from error
+        status = getattr(error, 'status_code', None)
+        code = getattr(error, 'code', None)
+        reason = 'ai_provider_error'
+        message = 'Ingredient analysis is temporarily unavailable. Please try again later.'
+        if isinstance(error, ModuleNotFoundError):
+            reason = 'ai_dependency_missing'
+            message = 'The scanner server needs its AI dependency installed. Please redeploy with requirements.txt.'
+        elif code == 'insufficient_quota':
+            reason = 'ai_credit_exhausted'
+            message = 'Ingredient analysis is unavailable because the AI account has no available API credit.'
+        elif status == 401:
+            reason = 'ai_key_rejected'
+            message = 'The AI service rejected the server API key. The server owner needs to update it.'
+        elif status == 403:
+            reason = 'ai_access_denied'
+            message = 'The AI account does not have permission to use the configured model.'
+        elif status == 404:
+            reason = 'ai_model_not_found'
+            message = 'The configured AI model is not available. The server model setting needs updating.'
+        elif status == 429:
+            reason = 'ai_rate_limited'
+        elif status == 400:
+            reason = 'ai_request_rejected'
+        raise HTTPException(503, message,
+                            headers={'X-FemWise-Error': reason,
+                                     'X-FemWise-Error-Type': type(error).__name__}) from error
 
 
 def create_ingredient_router(current_user, auth_rate_limit):
@@ -106,6 +132,8 @@ def create_ingredient_router(current_user, auth_rate_limit):
     def food_status():
         return {"ingredient_scanner": True,
                 "analysis_configured": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
+                "sdk_available": importlib.util.find_spec('openai') is not None,
+                "model": os.environ.get('OPENAI_MODEL', 'gpt-4o-mini'),
                 "cooked_food": False, "version": 1}
 
     @router.post("/extract_ingredients", response_model=LabelResult,
