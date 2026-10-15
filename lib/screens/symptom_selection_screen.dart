@@ -62,7 +62,8 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
       // Removed backgroundColor: Colors.transparent to allow the body's gradient to fill this area.
       appBar: AppBar(
         // Consistent AppBar styling from HomeScreen
-        backgroundColor: Colors.deepPurple.shade400, // Matches DailyLogScreen's AppBar
+        backgroundColor:
+            Colors.deepPurple.shade400, // Matches DailyLogScreen's AppBar
         foregroundColor: Colors.white, // White text/icons for contrast
         elevation: 0, // No shadow for a flat look
         title: Text(
@@ -76,24 +77,10 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white, size: 26),
-            onPressed: () async {
-              try {
-                await AccountService.instance.signOut();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Unable to sign out. Check your connection: $e')),
-                  );
-                }
-                return;
-              }
-              if (mounted) {
-                // Use pushReplacementNamed to prevent going back to SymptomSelectionScreen after logout
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-              }
-            },
-          ),
+            icon: const Icon(Icons.home_outlined, color: Colors.white),
+            tooltip: 'Home',
+            onPressed: () => Navigator.of(context).pushNamed('/home'),
+          )
         ],
       ),
       body: Container(
@@ -111,12 +98,15 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
           ),
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 100.0), // Add bottom padding for FAB
+          padding: const EdgeInsets.fromLTRB(
+              20.0, 20.0, 20.0, 100.0), // Add bottom padding for FAB
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch cards to fill width
+            crossAxisAlignment:
+                CrossAxisAlignment.stretch, // Stretch cards to fill width
             children: symptoms.map((symptomData) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 20.0), // Spacing between cards
+                padding: const EdgeInsets.only(
+                    bottom: 20.0), // Spacing between cards
                 child: _buildSymptomCard(
                   context,
                   symptomData['name'] as String,
@@ -135,22 +125,27 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: Icon(Icons.home, color: Colors.grey.shade600, size: 28), // Home icon is not selected
+              icon: Icon(Icons.home,
+                  color: Colors.grey.shade600,
+                  size: 28), // Home icon is not selected
               onPressed: () {
                 // Navigate back to the home screen. Using pop until first route if needed
                 // Or if HomeScreen is always the root, use pushReplacement
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const HomeScreen()),
-                      (Route<dynamic> route) => false, // Clears the stack
+                  (Route<dynamic> route) => false, // Clears the stack
                 );
               },
             ),
             IconButton(
-              icon: Icon(Icons.restaurant_menu, color: Colors.grey.shade600, size: 28), // Changed to a general food icon
+              icon: Icon(Icons.restaurant_menu,
+                  color: Colors.grey.shade600,
+                  size: 28), // Changed to a general food icon
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
+                    builder: (context) =>
+                        const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
                   ),
                 );
               },
@@ -158,11 +153,15 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
             // No Spacer needed as there's no FAB
             IconButton(
               // This screen's icon (Meditation/Symptom Selection) should be selected
-              icon: Icon(Icons.self_improvement, color: colorScheme.primary, size: 28), // Highlighted in primary color
+              icon: Icon(Icons.self_improvement,
+                  color: colorScheme.primary,
+                  size: 28), // Highlighted in primary color
               onPressed: () {
                 // Already on this screen, do nothing or provide feedback
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('You are already on the Symptom Selection screen!')),
+                  SnackBar(
+                      content: Text(
+                          'You are already on the Symptom Selection screen!')),
                 );
               },
             ),
@@ -173,18 +172,21 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
   }
 
   // Updated _buildSymptomCard for enhanced UI
-  Widget _buildSymptomCard(BuildContext context, String symptomName, IconData icon, Color accentColor) {
+  Widget _buildSymptomCard(BuildContext context, String symptomName,
+      IconData icon, Color accentColor) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return Card(
       elevation: 8, // Increased elevation for more depth
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // More rounded corners
-      clipBehavior: Clip.antiAlias, // Ensures internal content respects border radius
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20)), // More rounded corners
+      clipBehavior:
+          Clip.antiAlias, // Ensures internal content respects border radius
       child: InkWell(
         // Use InkWell for splash effect on tap
         onTap: () => _onSymptomSelected(context, symptomName.toLowerCase()),
-        splashColor: accentColor.withOpacity(0.2), // Light splash color
-        highlightColor: accentColor.withOpacity(0.05), // Subtle highlight
+        splashColor: accentColor.withValues(alpha: 0.2), // Light splash color
+        highlightColor: accentColor.withValues(alpha: 0.05), // Subtle highlight
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -193,15 +195,18 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
               end: Alignment.bottomRight,
               colors: [
                 Colors.white,
-                Colors.white.withOpacity(0.9), // Keep it mostly white but add depth
-                colorScheme.surface.withOpacity(0.7), // Use theme surface for consistency
+                Colors.white.withValues(
+                    alpha: 0.9), // Keep it mostly white but add depth
+                colorScheme.surface.withValues(
+                    alpha: 0.7), // Use theme surface for consistency
               ],
               stops: const [0.0, 0.5, 1.0],
             ),
             borderRadius: BorderRadius.circular(20), // Match card shape
             boxShadow: [
               BoxShadow(
-                color: accentColor.withOpacity(0.3), // Shadow matching accent color
+                color: accentColor.withValues(
+                    alpha: 0.3), // Shadow matching accent color
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -223,14 +228,15 @@ class _SymptomSelectionScreenState extends State<SymptomSelectionScreen> {
                     // Use Poppins for text consistency
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface, // Text color from theme for readability
+                    color: colorScheme
+                        .onSurface, // Text color from theme for readability
                   ),
                 ),
               ),
               Icon(
                 Icons.arrow_forward_ios,
                 size: 24,
-                color: colorScheme.onSurface.withOpacity(0.6),
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ],
           ),

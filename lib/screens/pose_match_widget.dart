@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
-import 'dart:typed_data';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -34,71 +32,118 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
   Timer? periodicTimer;
   Timer? _goodPostureTimer; // New timer for the 6-second delay
   bool _isGoodPostureDetected = false; // New flag to track good posture state
+  bool _cameraReady = false;
+  bool _modelReady = false;
+  bool _completed = false;
 
   CameraImage? latestImage;
 
   @override
   void initState() {
     super.initState();
-    initCamera();
-    loadModel();
-    extractReferencePose();
+    _initialize();
+  }
 
-    periodicTimer = Timer.periodic(const Duration(seconds: 1), (_) async { // Changed to 1 second for more responsive check
-      if (latestImage != null && referenceLandmarks != null && !isProcessing && !_isGoodPostureDetected) {
+  Future<void> _initialize() async {
+    try {
+      await loadModel();
+      if (!mounted || !_modelReady) return;
+      await extractReferencePose();
+      if (!mounted || referenceLandmarks == null) return;
+      await initCamera();
+      if (!mounted || !_cameraReady) return;
+    } catch (_) {
+      if (mounted)
+        setState(() => postureMessage =
+            'Unable to start pose matching. Check camera permission and reopen this guide.');
+      return;
+    }
+
+    periodicTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      // Changed to 1 second for more responsive check
+      if (latestImage != null &&
+          referenceLandmarks != null &&
+          !isProcessing &&
+          !_completed) {
         isProcessing = true;
-        final result = await computePoseDetection(
-            latestImage!, interpreter, referenceLandmarks!);
+        try {
+          final result = await computePoseDetection(
+              latestImage!, interpreter, referenceLandmarks!);
 
-        if (mounted) { // Check if the widget is still mounted before setState
-          if (result) {
-            // Good posture detected, start the 6-second timer
-            setState(() {
-              _isGoodPostureDetected = true;
-              postureMessage = "✅ GOOD POSTURE";
-            });
-            _startGoodPostureTimer();
-          } else {
-            // Posture not good
-            setState(() {
-              postureMessage = "❌ ADJUST YOUR POSTURE";
-            });
+          if (mounted) {
+            // Check if the widget is still mounted before setState
+            if (result && !_isGoodPostureDetected) {
+              // Good posture detected, start the 6-second timer
+              setState(() {
+                _isGoodPostureDetected = true;
+                postureMessage = "✅ GOOD POSTURE";
+              });
+              _startGoodPostureTimer();
+            } else if (!result) {
+              _goodPostureTimer?.cancel();
+              _isGoodPostureDetected = false;
+              // Posture not good
+              setState(() {
+                postureMessage = "❌ ADJUST YOUR POSTURE";
+              });
+            }
           }
+        } catch (_) {
+          _goodPostureTimer?.cancel();
+          _isGoodPostureDetected = false;
+          if (mounted)
+            setState(() => postureMessage =
+                'Move your whole body into view and try again.');
+        } finally {
           isProcessing = false;
-        } else {
-          isProcessing = false; // Ensure processing flag is reset even if unmounted
         }
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant PoseMatchCameraWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.referenceImagePath != widget.referenceImagePath) {
+      _goodPostureTimer?.cancel();
+      _isGoodPostureDetected = false;
+      _completed = false;
+      referenceLandmarks = null;
+      if (_modelReady) extractReferencePose();
+    }
   }
 
   void _startGoodPostureTimer() {
     _goodPostureTimer?.cancel(); // Cancel any existing timer
     _goodPostureTimer = Timer(const Duration(seconds: 6), () {
       if (mounted) {
+        _completed = true;
         widget.onPoseMatched(); // Go to next step after 6 seconds
-        setState(() {
-          _isGoodPostureDetected = false; // Reset for the next pose
-          postureMessage = "Loading..."; // Reset message
-        });
       }
     });
   }
 
   @override
   void dispose() {
-    controller.dispose();
-    interpreter.close();
     periodicTimer?.cancel();
     _goodPostureTimer?.cancel(); // Cancel the new timer
+    if (_cameraReady) controller.dispose();
+    if (_modelReady) interpreter.close();
     super.dispose();
   }
 
-  void initCamera() async {
+  Future<void> initCamera() async {
     final cameras = await availableCameras();
+    if (!mounted) return;
     if (cameras.isNotEmpty) {
-      controller = CameraController(cameras[0], ResolutionPreset.medium);
+      controller = CameraController(cameras[0], ResolutionPreset.medium,
+          enableAudio: false, imageFormatGroup: ImageFormatGroup.yuv420);
       await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      _cameraReady = true;
 
       if (controller.value.isInitialized) {
         controller.startImageStream((CameraImage image) {
@@ -122,7 +167,12 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
   Future<void> loadModel() async {
     try {
       interpreter =
-      await Interpreter.fromAsset('assets/models/movenet_lightning.tflite');
+          await Interpreter.fromAsset('assets/models/movenet_lightning.tflite');
+      if (!mounted) {
+        interpreter.close();
+        return;
+      }
+      _modelReady = true;
     } catch (e) {
       print('Error loading model: $e');
       if (mounted) {
@@ -134,8 +184,10 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
   }
 
   Future<void> extractReferencePose() async {
+    final referencePath = widget.referenceImagePath;
     try {
-      final byteData = await rootBundle.load(widget.referenceImagePath);
+      final byteData = await rootBundle.load(referencePath);
+      if (!mounted || referencePath != widget.referenceImagePath) return;
       final img.Image imgRef = img.decodeImage(byteData.buffer.asUint8List())!;
       final resized = img.copyResize(imgRef, width: 192, height: 192);
 
@@ -147,29 +199,30 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
 
       final input = List.generate(
         1,
-            (_) =>
-            List.generate(
-              192,
-                  (_) =>
-                  List.generate(
-                    192,
-                        (_) => List.filled(3, 0),
-                  ),
-            ),
+        (_) => List.generate(
+          192,
+          (_) => List.generate(
+            192,
+            (_) => List.filled(3, 0),
+          ),
+        ),
       );
 
       for (int y = 0; y < 192; y++) {
         for (int x = 0; x < 192; x++) {
           final pixel = resized.getPixel(x, y);
-          input[0][y][x][0] = img.getRed(pixel);
-          input[0][y][x][1] = img.getGreen(pixel);
-          input[0][y][x][2] = img.getBlue(pixel);
+          input[0][y][x][0] = pixel.r.toInt();
+          input[0][y][x][1] = pixel.g.toInt();
+          input[0][y][x][2] = pixel.b.toInt();
         }
       }
 
       final output = List.filled(1 * 1 * 17 * 3, 0.0).reshape([1, 1, 17, 3]);
       interpreter.run(input, output);
-      referenceLandmarks = output[0][0];
+      referenceLandmarks = [
+        for (final point in output[0][0])
+          [for (final value in point) (value as num).toDouble()]
+      ];
     } catch (e) {
       print('Error extracting reference pose: $e');
       if (mounted) {
@@ -184,32 +237,29 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
       Interpreter interpreter, List<List<double>> referenceLandmarks) async {
     final imgBytes = _convertCameraImageStatic(image);
     final cameraImage = img.Image.fromBytes(
-      image.width,
-      image.height,
-      imgBytes,
-      format: img.Format.rgb,
-    );
+        width: image.width,
+        height: image.height,
+        bytes: imgBytes.buffer,
+        numChannels: 3);
     final resized = img.copyResize(cameraImage, width: 192, height: 192);
 
     final input = List.generate(
       1,
-          (_) =>
-          List.generate(
-            192,
-                (_) =>
-                List.generate(
-                  192,
-                      (_) => List.filled(3, 0),
-                ),
-          ),
+      (_) => List.generate(
+        192,
+        (_) => List.generate(
+          192,
+          (_) => List.filled(3, 0),
+        ),
+      ),
     );
 
     for (int y = 0; y < 192; y++) {
       for (int x = 0; x < 192; x++) {
         final pixel = resized.getPixel(x, y);
-        input[0][y][x][0] = img.getRed(pixel);
-        input[0][y][x][1] = img.getGreen(pixel);
-        input[0][y][x][2] = img.getBlue(pixel);
+        input[0][y][x][0] = pixel.r.toInt();
+        input[0][y][x][1] = pixel.g.toInt();
+        input[0][y][x][2] = pixel.b.toInt();
       }
     }
 
@@ -219,20 +269,27 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
     final detected = output[0][0];
 
     double totalDiff = 0.0;
+    int visiblePoints = 0;
     for (int i = 0; i < detected.length; i++) {
+      if (detected[i][2] < .2 || referenceLandmarks[i][2] < .2) continue;
+      visiblePoints++;
       final dx = detected[i][0] - referenceLandmarks[i][0];
       final dy = detected[i][1] - referenceLandmarks[i][1];
       totalDiff += sqrt(dx * dx + dy * dy);
     }
 
-    return totalDiff < 3.0; // Threshold (you increased it to 3.0, keeping it as is)
+    return visiblePoints >= 6 && totalDiff / visiblePoints < .18;
   }
 
   static Uint8List _convertCameraImageStatic(CameraImage image) {
+    if (image.format.group != ImageFormatGroup.yuv420 ||
+        image.planes.length < 3) {
+      throw StateError('Pose matching requires a YUV420 camera stream.');
+    }
     final int width = image.width;
     final int height = image.height;
     final int uvRowStride = image.planes[1].bytesPerRow;
-    final int uvPixelStride = image.planes[1].bytesPerPixel!;
+    final int uvPixelStride = image.planes[1].bytesPerPixel ?? 1;
 
     final imgBytes = Uint8List(width * height * 3);
 
@@ -242,9 +299,11 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
 
         final int index = y * width + x;
 
-        final yp = image.planes[0].bytes[index];
+        final yp = image.planes[0].bytes[y * image.planes[0].bytesPerRow + x];
         final up = image.planes[1].bytes[uvIndex];
-        final vp = image.planes[2].bytes[uvIndex];
+        final vp = image.planes[2].bytes[
+            (y ~/ 2) * image.planes[2].bytesPerRow +
+                (x ~/ 2) * (image.planes[2].bytesPerPixel ?? 1)];
 
         int r = (yp + 1.403 * (vp - 128)).round();
         int g = (yp - 0.344 * (up - 128) - 0.714 * (vp - 128)).round();
@@ -265,8 +324,8 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (!controller.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+    if (!_cameraReady || !controller.value.isInitialized) {
+      return Center(child: Text(postureMessage, textAlign: TextAlign.center));
     }
 
     final double cameraAspectRatio = controller.value.aspectRatio;
@@ -279,9 +338,9 @@ class _PoseMatchCameraWidgetState extends State<PoseMatchCameraWidget> {
             color: Colors.black12,
             child: referenceImage != null
                 ? Image.memory(
-              Uint8List.fromList(img.encodeJpg(referenceImage!)),
-              fit: BoxFit.contain,
-            )
+                    Uint8List.fromList(img.encodeJpg(referenceImage!)),
+                    fit: BoxFit.contain,
+                  )
                 : const Center(child: Text("Loading Reference...")),
           ),
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:femwise/widgets/pcos_logo.dart';
 import 'package:femwise/services/account_service.dart';
+import 'package:femwise/services/api_config.dart';
 import 'package:femwise/screens/onboarding_screen.dart';
 import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
 
@@ -17,6 +19,58 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+
+  Future<void> _showServerConfigDialog() async {
+    final controller = TextEditingController(text: ApiConfig.accounts);
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backend Server URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the address of your PC running the backend:\n(e.g., http://10.60.73.214:8002)',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'http://10.60.73.214:8002',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                await ApiConfig.setAccountsUrl(controller.text.trim());
+                if (mounted) {
+                  setState(() {
+                    _errorMessage = null;
+                  });
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('Server set to: ${ApiConfig.accounts}')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -40,14 +94,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
           password: _passwordController.text,
         );
 
-          if (mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-                  (route) => false,
-            );
-          }
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+            (route) => false,
+          );
+        }
       } on AccountException catch (e) {
-        if (mounted) setState(() { _errorMessage = e.message; });
+        if (mounted)
+          setState(() {
+            _errorMessage = e.message;
+          });
       } catch (e) {
         setState(() {
           _errorMessage = 'An unexpected error occurred: $e';
@@ -69,12 +126,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true, // Allows body to go behind transparent app bar
+      extendBodyBehindAppBar:
+          true, // Allows body to go behind transparent app bar
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent app bar
         elevation: 0, // No shadow
-        // Removed the title property as requested
-        iconTheme: const IconThemeData(color: Colors.white), // Back button icon color
+        iconTheme:
+            const IconThemeData(color: Colors.white), // Back button icon color
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_rounded, color: Colors.deepPurple),
+            tooltip: 'Server Settings',
+            onPressed: _showServerConfigDialog,
+          ),
+        ],
       ),
       body: Container(
         // Background gradient from home_screen.dart
@@ -95,30 +160,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
             padding: const EdgeInsets.all(24.0),
             child: Card(
               elevation: 12, // Increased elevation for a more prominent card
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-              color: Colors.white.withOpacity(0.95), // Slightly opaque white card
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25)),
+              color: Colors.white
+                  .withValues(alpha: 0.95), // Slightly opaque white card
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 40.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 30.0, vertical: 40.0),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // Make column take minimum space
+                    mainAxisSize:
+                        MainAxisSize.min, // Make column take minimum space
                     children: <Widget>[
                       // App Logo
-                      Image.asset(
-                        'assets/logo.jpg', // Path to your logo image
-                        height: 120, // Adjust height as needed
-                        width: 120, // Adjust width as needed
-                        fit: BoxFit.contain,
-                      ),
+                      const PcosLogo(),
                       const SizedBox(height: 20),
                       Text(
                         'Join FemWise',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.playfairDisplay( // Attractive style for greeting
+                        style: GoogleFonts.playfairDisplay(
+                          // Attractive style for greeting
                           fontSize: 34,
                           fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple.shade700, // Darker purple for heading
+                          color: Colors
+                              .deepPurple.shade700, // Darker purple for heading
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -136,24 +202,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       TextFormField(
                         controller: _nameController,
                         keyboardType: TextInputType.name,
-                        style: GoogleFonts.montserrat(fontSize: 16, color: Colors.grey.shade800),
+                        style: GoogleFonts.montserrat(
+                            fontSize: 16, color: Colors.grey.shade800),
                         decoration: InputDecoration(
                           labelText: 'Full Name',
-                          labelStyle: GoogleFonts.montserrat(color: Colors.grey.shade600),
+                          labelStyle: GoogleFonts.montserrat(
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: Colors.deepPurple.shade50.withOpacity(0.5),
-                          prefixIcon: Icon(Icons.person, color: Colors.deepPurple.shade400),
+                          fillColor:
+                              Colors.deepPurple.shade50.withValues(alpha: 0.5),
+                          prefixIcon: Icon(Icons.person,
+                              color: Colors.deepPurple.shade400),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade400, width: 2),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade400, width: 2),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 1),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade200, width: 1),
                           ),
                         ),
                         validator: (value) {
@@ -169,24 +241,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        style: GoogleFonts.montserrat(fontSize: 16, color: Colors.grey.shade800),
+                        style: GoogleFonts.montserrat(
+                            fontSize: 16, color: Colors.grey.shade800),
                         decoration: InputDecoration(
                           labelText: 'Email',
-                          labelStyle: GoogleFonts.montserrat(color: Colors.grey.shade600),
+                          labelStyle: GoogleFonts.montserrat(
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: Colors.deepPurple.shade50.withOpacity(0.5),
-                          prefixIcon: Icon(Icons.email, color: Colors.deepPurple.shade400),
+                          fillColor:
+                              Colors.deepPurple.shade50.withValues(alpha: 0.5),
+                          prefixIcon: Icon(Icons.email,
+                              color: Colors.deepPurple.shade400),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade400, width: 2),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade400, width: 2),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 1),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade200, width: 1),
                           ),
                         ),
                         validator: (value) {
@@ -205,24 +283,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
-                        style: GoogleFonts.montserrat(fontSize: 16, color: Colors.grey.shade800),
+                        style: GoogleFonts.montserrat(
+                            fontSize: 16, color: Colors.grey.shade800),
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          labelStyle: GoogleFonts.montserrat(color: Colors.grey.shade600),
+                          labelStyle: GoogleFonts.montserrat(
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: Colors.deepPurple.shade50.withOpacity(0.5),
-                          prefixIcon: Icon(Icons.lock, color: Colors.deepPurple.shade400),
+                          fillColor:
+                              Colors.deepPurple.shade50.withValues(alpha: 0.5),
+                          prefixIcon: Icon(Icons.lock,
+                              color: Colors.deepPurple.shade400),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade400, width: 2),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade400, width: 2),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 1),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade200, width: 1),
                           ),
                         ),
                         validator: (value) {
@@ -241,10 +325,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (_errorMessage != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 20.0),
-                          child: Text(
-                            _errorMessage!,
-                            style: GoogleFonts.montserrat(color: Colors.red.shade700, fontSize: 14, fontWeight: FontWeight.w500),
-                            textAlign: TextAlign.center,
+                          child: Column(
+                            children: [
+                              Text(
+                                _errorMessage!,
+                                style: GoogleFonts.montserrat(
+                                    color: Colors.red.shade700,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_errorMessage!.contains('SocketException') ||
+                                  _errorMessage!.contains('Connection timed out') ||
+                                  _errorMessage!.contains('10.0.2.2'))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: TextButton.icon(
+                                    icon: const Icon(Icons.settings_ethernet,
+                                        size: 18),
+                                    label: const Text('Change Server IP'),
+                                    onPressed: _showServerConfigDialog,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
 
@@ -260,7 +363,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF8A2BE2).withOpacity(0.4),
+                              color: const Color(0xFF8A2BE2)
+                                  .withValues(alpha: 0.4),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -277,23 +381,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
                               : Text(
-                            'Sign Up',
-                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
+                                  'Sign Up',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
                       // Log In Button (centered)
-                      Center( // Centered as requested
+                      Center(
+                        // Centered as requested
                         child: TextButton(
                           onPressed: _isLoading
                               ? null
                               : () {
-                            Navigator.of(context).pop();
-                          },
+                                  Navigator.of(context).pop();
+                                },
                           child: Text(
                             'Already have an account? Log In',
                             style: GoogleFonts.montserrat(

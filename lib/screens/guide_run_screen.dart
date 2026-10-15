@@ -20,11 +20,11 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
   bool _cameraPermissionGranted = false;
   bool _permissionChecked = false;
   bool _showRepeatNextOption = false;
-  late int _breathingStepRepeatedFromIndex; // To store the index of the pose before breathing
+  late int
+      _breathingStepRepeatedFromIndex; // To store the index of the pose before breathing
 
   // Audio player and its state
   late AudioPlayer _audioPlayer;
-  bool _isMusicPlaying = false;
   bool _isMusicMuted = false;
 
   // Define a consistent purple color for the theme as MaterialColor to access shades
@@ -69,7 +69,6 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
     try {
       await _audioPlayer.play(AssetSource('music.mp3'));
       setState(() {
-        _isMusicPlaying = true;
         _isMusicMuted = false; // Ensure it's not muted when it starts playing
       });
     } catch (e) {
@@ -147,15 +146,20 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
     _audioPlayer.stop(); // Stop music when guide is completed
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevents dialog from being dismissed by tapping outside
+      barrierDismissible:
+          false, // Prevents dialog from being dismissed by tapping outside
       builder: (_) => AlertDialog(
         title: Text(
           "🎉 Guide Completed",
-          style: TextStyle(color: _purpleThemeColor, fontWeight: FontWeight.bold), // Purple title
+          style: TextStyle(
+              color: _purpleThemeColor,
+              fontWeight: FontWeight.bold), // Purple title
         ),
         content: Text(
           "You've completed all steps successfully.",
-          style: TextStyle(color: _purpleThemeColor.withOpacity(0.8)), // Slightly lighter purple content
+          style: TextStyle(
+              color: _purpleThemeColor.withValues(
+                  alpha: 0.8)), // Slightly lighter purple content
         ),
         actions: [
           TextButton(
@@ -177,7 +181,8 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
     setState(() {
       _showRepeatNextOption = false;
       if (_breathingStepRepeatedFromIndex != -1) {
-        currentStepIndex = _breathingStepRepeatedFromIndex; // Go back to the pose
+        currentStepIndex =
+            _breathingStepRepeatedFromIndex; // Go back to the pose
       } else {
         // If there was no preceding pose, just re-do the breathing step
         // (this shouldn't happen if logic is always pose -> breathing)
@@ -212,7 +217,10 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
             padding: const EdgeInsets.all(24.0),
             child: Text(
               "Camera permission is required to continue. Please grant permission and restart the app.",
-              style: TextStyle(fontSize: 16, color: _purpleThemeColor), // Purple text for permission message
+              style: TextStyle(
+                  fontSize: 16,
+                  color:
+                      _purpleThemeColor), // Purple text for permission message
               textAlign: TextAlign.center,
             ),
           ),
@@ -225,7 +233,10 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
         body: Center(
           child: Text(
             "Guide Finished",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _purpleThemeColor), // Purple text for "Guide Finished"
+            style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: _purpleThemeColor), // Purple text for "Guide Finished"
           ),
         ),
       );
@@ -246,7 +257,10 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
                     children: [
                       Text(
                         step['title'] ?? 'Step ${currentStepIndex + 1}',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _purpleThemeColor), // Purple step title
+                        style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: _purpleThemeColor), // Purple step title
                       ),
                       const SizedBox(height: 20),
                       if (step['type'] == 'pose')
@@ -263,7 +277,8 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
                         Expanded(
                           child: BreathingStepWidget(
                             step: step,
-                            onStepCompleted: _onBreathingStepCompleted, // Call our specific handler
+                            onStepCompleted:
+                                _onBreathingStepCompleted, // Call our specific handler
                           ),
                         ),
                     ],
@@ -291,7 +306,8 @@ class _GuideRunScreenState extends State<GuideRunScreen> {
               onNext: _handleNext,
               // Only enable repeat if there was a preceding pose
               canRepeat: _breathingStepRepeatedFromIndex != -1,
-              purpleThemeColor: _purpleThemeColor, // Pass the color to the overlay
+              purpleThemeColor:
+                  _purpleThemeColor, // Pass the color to the overlay
             ),
         ],
       ),
@@ -371,7 +387,8 @@ class _BreathingStepWidgetState extends State<BreathingStepWidget> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white, // Keep timer white for contrast on dark background
+                  color: Colors
+                      .white, // Keep timer white for contrast on dark background
                 ),
               ),
             ),
@@ -451,17 +468,19 @@ class _RepeatNextOverlayState extends State<RepeatNextOverlay> {
                 ElevatedButton.icon(
                   onPressed: widget.canRepeat
                       ? () {
-                    _overlayTimer?.cancel();
-                    widget.onRepeat();
-                  }
+                          _overlayTimer?.cancel();
+                          widget.onRepeat();
+                        }
                       : null, // Disable button if canRepeat is false
                   icon: const Icon(Icons.replay),
                   label: const Text('Repeat', style: TextStyle(fontSize: 20)),
                   style: ElevatedButton.styleFrom(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                    backgroundColor:
-                    widget.canRepeat ? widget.purpleThemeColor : Colors.grey, // Purple button if enabled, grey if disabled
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 30, vertical: 15),
+                    backgroundColor: widget.canRepeat
+                        ? widget.purpleThemeColor
+                        : Colors
+                            .grey, // Purple button if enabled, grey if disabled
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -473,9 +492,10 @@ class _RepeatNextOverlayState extends State<RepeatNextOverlay> {
                   icon: const Icon(Icons.arrow_forward),
                   label: const Text('Next', style: TextStyle(fontSize: 20)),
                   style: ElevatedButton.styleFrom(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                    backgroundColor: widget.purpleThemeColor.shade700, // Access shade700 correctly
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 30, vertical: 15),
+                    backgroundColor: widget
+                        .purpleThemeColor.shade700, // Access shade700 correctly
                     foregroundColor: Colors.white,
                   ),
                 ),

@@ -51,13 +51,18 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   // Define custom colors for other markers (text colors for ovulation/fertile, circles for today/selected)
-  final Color _predictedPeriodColor = const Color(0xFFAD1457); // Dark Pink (Changed for 'Next Period')
-  final Color _predictedOvulationTextColor = const Color(0xFFF9A825); // Amber A700 (text only on calendar)
-  final Color _predictedFertileTextColor = const Color(0xFF4CAF50); // Green 500 (text only on calendar)
+  final Color _predictedPeriodColor =
+      const Color(0xFFAD1457); // Dark Pink (Changed for 'Next Period')
+  final Color _predictedOvulationTextColor =
+      const Color(0xFFF9A825); // Amber A700 (text only on calendar)
+  final Color _predictedFertileTextColor =
+      const Color(0xFF4CAF50); // Green 500 (text only on calendar)
 
   // Current Day (Today) color changed to purple
-  final Color _todayBorderColor = const Color(0xFF673AB7); // Deep Purple (border)
-  final Color _todayFillColor = const Color(0xFFD1C4E9); // Light Purple 100 (fill for Today)
+  final Color _todayBorderColor =
+      const Color(0xFF673AB7); // Deep Purple (border)
+  final Color _todayFillColor =
+      const Color(0xFFD1C4E9); // Light Purple 100 (fill for Today)
 
   @override
   void initState() {
@@ -86,7 +91,8 @@ class _HomeScreenState extends State<HomeScreen> {
         dynamic lastPeriodStartDateData = _userData!['lastPeriodStartDate'];
         if (lastPeriodStartDateData is String) {
           try {
-            _lastPeriodStartDate = DateFormat('yyyy-MM-dd').parse(lastPeriodStartDateData);
+            _lastPeriodStartDate =
+                DateFormat('yyyy-MM-dd').parse(lastPeriodStartDateData);
           } catch (e) {
             print('Error parsing lastPeriodStartDate string: $e');
             _lastPeriodStartDate = null;
@@ -120,10 +126,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Calculates future predictions based on fetched user data
   void _makeFormulaBasedPrediction() {
-    if (_lastPeriodStartDate != null && _typicalCycleLength != null && _typicalCycleLength! > 0) {
+    if (_lastPeriodStartDate != null &&
+        _typicalCycleLength != null &&
+        _typicalCycleLength! > 0) {
       // Predicted Next Period Start: Add typical cycle length to last period start
-      _predictedNextPeriodStart = _lastPeriodStartDate!
-          .add(Duration(days: _typicalCycleLength!));
+      _predictedNextPeriodStart =
+          _lastPeriodStartDate!.add(Duration(days: _typicalCycleLength!));
 
       // Ovulation is typically around 14 days before the *next* period
       _predictedOvulationDay =
@@ -161,12 +169,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Check for predicted period
-    if (_predictedNextPeriodStart != null && isSameDay(_predictedNextPeriodStart!, day)) {
+    if (_predictedNextPeriodStart != null &&
+        isSameDay(_predictedNextPeriodStart!, day)) {
       types.add(CalendarMarkerType.predictedPeriod);
     }
 
     // Check for predicted ovulation
-    if (_predictedOvulationDay != null && isSameDay(_predictedOvulationDay!, day)) {
+    if (_predictedOvulationDay != null &&
+        isSameDay(_predictedOvulationDay!, day)) {
       types.add(CalendarMarkerType.predictedOvulation);
     }
 
@@ -186,8 +196,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      return await AccountService.instance.getDailyLog(
-          DateFormat('yyyy-MM-dd').format(date));
+      return await AccountService.instance
+          .getDailyLog(DateFormat('yyyy-MM-dd').format(date));
     } catch (e) {
       print('Error fetching daily log for date $date: $e');
       return null;
@@ -195,21 +205,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Function to show daily log details in a dialog
-  void _showDailyLogDetails(BuildContext context, DateTime date, Map<String, dynamic>? logData) {
+  void _showDailyLogDetails(
+      BuildContext context, DateTime date, Map<String, dynamic>? logData) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           titlePadding: EdgeInsets.zero, // Remove default title padding
-          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24), // Adjust content padding
+          contentPadding: const EdgeInsets.fromLTRB(
+              24, 0, 24, 24), // Adjust content padding
           title: Container(
             padding: const EdgeInsets.symmetric(vertical: 18),
             decoration: BoxDecoration(
               color: colorScheme.primary, // Primary color for the header
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Text(
               'Daily Log for\n${DateFormat('EEEE, MMM dd, yyyy').format(date)}',
@@ -217,111 +231,117 @@ class _HomeScreenState extends State<HomeScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: colorScheme.onPrimary, // White text on primary background
+                color:
+                    colorScheme.onPrimary, // White text on primary background
               ),
             ),
           ),
           content: SingleChildScrollView(
             child: logData == null || logData.isEmpty
                 ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.sentiment_dissatisfied, size: 50, color: Colors.grey.shade400),
-                  const SizedBox(height: 10),
-                  Text(
-                    'No log entry for this date.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.montserrat(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 20.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.sentiment_dissatisfied,
+                            size: 50, color: Colors.grey.shade400),
+                        const SizedBox(height: 10),
+                        Text(
+                          'No log entry for this date.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.montserrat(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            )
+                  )
                 : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 20),
-                _buildLogDetailCard(
-                  context,
-                  title: 'General Health',
-                  details: [
-                    _buildDetailRow(
-                      context,
-                      icon: Icons.mood_outlined,
-                      label: 'Mood:',
-                      value: logData['mood'] ?? 'N/A',
-                      valueColor: Colors.orange.shade700,
-                    ),
-                    _buildDetailRow(
-                      context,
-                      icon: Icons.notes,
-                      label: 'Notes:',
-                      value: logData['notes'] ?? 'No notes',
-                    ),
-                  ],
-                ),
-                if (logData['isOnPeriod'] == true) ...[
-                  _buildLogDetailCard(
-                    context,
-                    title: 'Period Tracking',
-                    details: [
-                      _buildDetailRow(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 20),
+                      _buildLogDetailCard(
                         context,
-                        icon: Icons.calendar_month,
-                        label: 'Menstrual Day:',
-                        value: (logData['menstrualDay'] ?? 'N/A').toString(),
-                        valueColor: Colors.red.shade700,
+                        title: 'General Health',
+                        details: [
+                          _buildDetailRow(
+                            context,
+                            icon: Icons.mood_outlined,
+                            label: 'Mood:',
+                            value: logData['mood'] ?? 'N/A',
+                            valueColor: Colors.orange.shade700,
+                          ),
+                          _buildDetailRow(
+                            context,
+                            icon: Icons.notes,
+                            label: 'Notes:',
+                            value: logData['notes'] ?? 'No notes',
+                          ),
+                        ],
                       ),
-                      _buildDetailRow(
-                        context,
-                        icon: Icons.water_drop,
-                        label: 'Period Flow:',
-                        value: logData['periodFlow'] ?? 'N/A',
-                        valueColor: Colors.red.shade700,
-                      ),
+                      if (logData['isOnPeriod'] == true) ...[
+                        _buildLogDetailCard(
+                          context,
+                          title: 'Period Tracking',
+                          details: [
+                            _buildDetailRow(
+                              context,
+                              icon: Icons.calendar_month,
+                              label: 'Menstrual Day:',
+                              value:
+                                  (logData['menstrualDay'] ?? 'N/A').toString(),
+                              valueColor: Colors.red.shade700,
+                            ),
+                            _buildDetailRow(
+                              context,
+                              icon: Icons.water_drop,
+                              label: 'Period Flow:',
+                              value: logData['periodFlow'] ?? 'N/A',
+                              valueColor: Colors.red.shade700,
+                            ),
+                          ],
+                        ),
+                        _buildLogDetailCard(
+                          context,
+                          title: 'Symptoms Logged',
+                          details: _buildSymptomsDetails(
+                              context, logData['symptoms'] ?? {}),
+                        ),
+                      ] else ...[
+                        _buildLogDetailCard(
+                          context,
+                          title: 'Fertility Tracking',
+                          details: [
+                            _buildDetailRow(
+                              context,
+                              icon: Icons.opacity,
+                              label: 'Cervical Mucus:',
+                              value: logData['cervicalMucus'] ?? 'N/A',
+                              valueColor: Colors.blue.shade700,
+                            ),
+                            _buildDetailRow(
+                              context,
+                              icon: Icons.science_outlined,
+                              label: 'OPK Result:',
+                              value: logData['opkResult'] ?? 'N/A',
+                              valueColor: Colors.purple.shade700,
+                            ),
+                            _buildDetailRow(
+                              context,
+                              icon: Icons.favorite,
+                              label: 'Intercourse:',
+                              value: (logData['intercourseToday'] ?? false)
+                                  ? 'Yes'
+                                  : 'No',
+                              valueColor: Colors.pink.shade700,
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                  _buildLogDetailCard(
-                    context,
-                    title: 'Symptoms Logged',
-                    details: _buildSymptomsDetails(context, logData['symptoms'] ?? {}),
-                  ),
-                ] else ...[
-                  _buildLogDetailCard(
-                    context,
-                    title: 'Fertility Tracking',
-                    details: [
-                      _buildDetailRow(
-                        context,
-                        icon: Icons.opacity,
-                        label: 'Cervical Mucus:',
-                        value: logData['cervicalMucus'] ?? 'N/A',
-                        valueColor: Colors.blue.shade700,
-                      ),
-                      _buildDetailRow(
-                        context,
-                        icon: Icons.science_outlined,
-                        label: 'OPK Result:',
-                        value: logData['opkResult'] ?? 'N/A',
-                        valueColor: Colors.purple.shade700,
-                      ),
-                      _buildDetailRow(
-                        context,
-                        icon: Icons.favorite,
-                        label: 'Intercourse:',
-                        value: (logData['intercourseToday'] ?? false) ? 'Yes' : 'No',
-                        valueColor: Colors.pink.shade700,
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
           ),
           actions: [
             TextButton(
@@ -344,9 +364,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Helper to build a card for a section of log details
-  Widget _buildLogDetailCard(BuildContext context, {required String title, required List<Widget> details}) {
+  Widget _buildLogDetailCard(BuildContext context,
+      {required String title, required List<Widget> details}) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
-    if (details.isEmpty) return const SizedBox.shrink(); // Don't show card if no details
+    if (details.isEmpty)
+      return const SizedBox.shrink(); // Don't show card if no details
 
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
@@ -374,7 +396,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Helper to build a single row for a detail
-  Widget _buildDetailRow(BuildContext context, {
+  Widget _buildDetailRow(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
@@ -385,7 +408,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+          Icon(icon,
+              size: 20,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.7)),
           const SizedBox(width: 10),
           Text(
             label,
@@ -401,7 +429,11 @@ class _HomeScreenState extends State<HomeScreen> {
               textAlign: TextAlign.right,
               style: GoogleFonts.montserrat(
                 fontSize: 15,
-                color: valueColor ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
+                color: valueColor ??
+                    Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.9),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -412,7 +444,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Helper to dynamically build symptom detail rows
-  List<Widget> _buildSymptomsDetails(BuildContext context, Map<String, dynamic> symptoms) {
+  List<Widget> _buildSymptomsDetails(
+      BuildContext context, Map<String, dynamic> symptoms) {
     final List<Widget> symptomWidgets = [];
     final Map<String, String> symptomLabels = {
       'fatigue': 'Fatigue',
@@ -426,16 +459,19 @@ class _HomeScreenState extends State<HomeScreen> {
       'acne': Icons.auto_awesome_outlined,
       'cramps': Icons.sick_outlined,
       'headache': Icons.local_hospital_outlined,
-      'bloating': Icons.bubble_chart_outlined, // Using a generic bubble icon for bloating
+      'bloating': Icons
+          .bubble_chart_outlined, // Using a generic bubble icon for bloating
     };
 
-
     symptoms.forEach((key, value) {
-      if (value == true) { // Only show symptoms that were logged as true
+      if (value == true) {
+        // Only show symptoms that were logged as true
         symptomWidgets.add(_buildDetailRow(
           context,
-          icon: symptomIcons[key] ?? Icons.check_circle_outline, // Fallback icon
-          label: symptomLabels[key] ?? key.replaceFirst(key[0], key[0].toUpperCase()), // Fallback label
+          icon:
+              symptomIcons[key] ?? Icons.check_circle_outline, // Fallback icon
+          label: symptomLabels[key] ??
+              key.replaceFirst(key[0], key[0].toUpperCase()), // Fallback label
           value: 'Yes',
           valueColor: Colors.green.shade700, // Green for positive symptom
         ));
@@ -462,16 +498,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (_isLoading) {
       return Scaffold(
-        body: Center(child: CircularProgressIndicator(color: colorScheme.primary)),
+        body: Center(
+            child: CircularProgressIndicator(color: colorScheme.primary)),
       );
     }
 
     return Scaffold(
-      extendBodyBehindAppBar: true, // Allows body to go behind transparent app bar
+      extendBodyBehindAppBar:
+          true, // Allows body to go behind transparent app bar
       appBar: AppBar(
         // Set the background color to match the Daily Log Screen's primary color
-        backgroundColor: Colors.deepPurple.shade400, // Changed to match the DailyLogScreen's AppBar
-        foregroundColor: Colors.white, // Keep text/icons white for good contrast
+        backgroundColor: Colors.deepPurple
+            .shade400, // Changed to match the DailyLogScreen's AppBar
+        foregroundColor:
+            Colors.white, // Keep text/icons white for good contrast
         elevation: 0, // No shadow for a flat look
         title: Text(
           'My Cycle Insights',
@@ -483,23 +523,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white, size: 26), // Icon color white
-            onPressed: () async {
-              try {
-                await AccountService.instance.signOut();
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Unable to sign out. Check your connection: $e')),
-                  );
-                }
-                return;
-              }
-              if (mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-              }
-            },
-          ),
+            icon: const Icon(Icons.person_outline, color: Colors.white),
+            tooltip: 'Cycle profile',
+            onPressed: () => Navigator.of(context).pushNamed('/profile'),
+          )
         ],
       ),
       body: Container(
@@ -508,18 +535,27 @@ class _HomeScreenState extends State<HomeScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.deepPurple.shade50,   // Match DailyLogScreen's gradient start
-              Colors.purple.shade100,      // Match DailyLogScreen's gradient middle
-              Colors.deepPurple.shade200,  // Match DailyLogScreen's gradient end
+              Colors
+                  .deepPurple.shade50, // Match DailyLogScreen's gradient start
+              Colors.purple.shade100, // Match DailyLogScreen's gradient middle
+              Colors.deepPurple.shade200, // Match DailyLogScreen's gradient end
             ],
-            stops: const [0.0, 0.5, 1.0], // Keep the stops for consistent appearance
+            stops: const [
+              0.0,
+              0.5,
+              1.0
+            ], // Keep the stops for consistent appearance
           ),
         ),
         child: SingleChildScrollView(
           // Ensure enough padding for FAB and bottom navigation bar, but not excessive
           padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + kToolbarHeight, // Top padding for app bar
-            bottom: 80.0 + MediaQuery.of(context).padding.bottom, // FAB height + safe area bottom padding
+            top: MediaQuery.of(context).padding.top +
+                kToolbarHeight, // Top padding for app bar
+            bottom: 80.0 +
+                MediaQuery.of(context)
+                    .padding
+                    .bottom, // FAB height + safe area bottom padding
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,8 +563,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20.0, 10.0, 20.0, 0.0),
                 child: Text(
-                  'Hello, ${_userData?['name'] ?? AccountService.instance.currentUser?.email?.split('@').first ?? 'User'}!',
-                  style: GoogleFonts.playfairDisplay( // Attractive style for greeting
+                  'Hello, ${_userData?['name'] ?? AccountService.instance.currentUser?.email.split('@').first ?? 'User'}!',
+                  style: GoogleFonts.playfairDisplay(
+                    // Attractive style for greeting
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     color: Colors.black, // White color for contrast
@@ -541,7 +578,8 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 25),
 
               if (_userData != null &&
-                  (_predictedNextPeriodStart != null || _predictedOvulationDay != null))
+                  (_predictedNextPeriodStart != null ||
+                      _predictedOvulationDay != null))
                 _buildPredictionSummaryCard(),
               const SizedBox(height: 20), // Extra space at bottom
             ],
@@ -550,29 +588,37 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(
+          Navigator.of(context)
+              .push(
             MaterialPageRoute(
               builder: (context) => const DailyLogScreen(),
             ),
-          ).then((_) {
+          )
+              .then((_) {
             _fetchUserDataAndMakeInitialPrediction(); // Refresh data after returning from log screen
           });
         },
         tooltip: 'Log Data',
         backgroundColor: Colors.transparent, // Make FAB background transparent
         elevation: 0, // Remove default elevation
-        child: Material( // Wrap Ink with Material
+        child: Material(
+          // Wrap Ink with Material
           elevation: 8.0, // Add the shadow here (adjust value as needed)
           borderRadius: BorderRadius.circular(50),
-          color: Colors.transparent, // Make Material background transparent so gradient shows
+          color: Colors
+              .transparent, // Make Material background transparent so gradient shows
           child: Ink(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFFD3A4F4), Color(0xFF8A2BE2)], // Lighter to Darker Purple
+                colors: [
+                  Color(0xFFD3A4F4),
+                  Color(0xFF8A2BE2)
+                ], // Lighter to Darker Purple
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(50), // Make it perfectly round
+              borderRadius:
+                  BorderRadius.circular(50), // Make it perfectly round
             ),
             child: const Center(
               child: Icon(
@@ -594,18 +640,22 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: Icon(Icons.home, color: const Color(0xFF8A2BE2), size: 28), // Violet
+              icon: Icon(Icons.home,
+                  color: const Color(0xFF8A2BE2), size: 28), // Violet
               onPressed: () {
                 // Already on home screen, maybe scroll to top
               },
             ),
             // ICON BUTTON FOR FOOD OPTIONS
             IconButton(
-              icon: Icon(Icons.restaurant_menu, color: Colors.grey.shade600, size: 28), // Changed to a general food icon
+              icon: Icon(Icons.restaurant_menu,
+                  color: Colors.grey.shade600,
+                  size: 28), // Changed to a general food icon
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
+                    builder: (context) =>
+                        const FoodOptionsScreen(), // Navigate to the new FoodOptionsScreen
                   ),
                 );
               },
@@ -613,13 +663,17 @@ class _HomeScreenState extends State<HomeScreen> {
             // Spacer for the FAB
             const SizedBox(width: 48),
             IconButton(
-              icon: Icon(Icons.self_improvement, color: Colors.grey.shade600, size: 28), // Changed icon to self_improvement
+              icon: Icon(Icons.self_improvement,
+                  color: Colors.grey.shade600,
+                  size: 28), // Changed icon to self_improvement
               onPressed: () {
                 // Navigate to your Meditation Screen
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => const SymptomSelectionScreen(),
-                    settings: const RouteSettings(name: '/symptomSelection'), // <-- Replace with your MeditationScreen
+                    settings: const RouteSettings(
+                        name:
+                            '/symptomSelection'), // <-- Replace with your MeditationScreen
                   ),
                 );
               },
@@ -638,10 +692,14 @@ class _HomeScreenState extends State<HomeScreen> {
     // Calculate current cycle day
     int? currentCycleDay;
     double progressValue = 0.0;
-    if (_lastPeriodStartDate != null && _typicalCycleLength != null && _typicalCycleLength! > 0) {
-      currentCycleDay = DateTime.now().difference(_lastPeriodStartDate!).inDays + 1;
+    if (_lastPeriodStartDate != null &&
+        _typicalCycleLength != null &&
+        _typicalCycleLength! > 0) {
+      currentCycleDay =
+          DateTime.now().difference(_lastPeriodStartDate!).inDays + 1;
       progressValue = currentCycleDay / _typicalCycleLength!;
-      progressValue = progressValue.clamp(0.0, 1.0); // Ensure value is between 0 and 1
+      progressValue =
+          progressValue.clamp(0.0, 1.0); // Ensure value is between 0 and 1
     }
 
     return Card(
@@ -656,13 +714,14 @@ class _HomeScreenState extends State<HomeScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.white.withOpacity(0.9),
-              const Color(0xFFF3E5F5).withOpacity(0.9), // Lightest Purple
+              Colors.white.withValues(alpha: 0.9),
+              const Color(0xFFF3E5F5).withValues(alpha: 0.9), // Lightest Purple
             ],
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5), // Lighter purple shadow
+              color: const Color(0xFFD1C4E9)
+                  .withValues(alpha: 0.5), // Lighter purple shadow
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -681,10 +740,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: colorScheme.primary, // Use primary color for heading
               ),
             ),
-            Divider(color: colorScheme.primary.withOpacity(0.3), thickness: 1.5, height: 25),
+            Divider(
+                color: colorScheme.primary.withValues(alpha: 0.3),
+                thickness: 1.5,
+                height: 25),
 
             // --- New: Cycle Day and Progress Bar ---
-            if (_lastPeriodStartDate != null && _typicalCycleLength != null && _typicalCycleLength! > 0)
+            if (_lastPeriodStartDate != null &&
+                _typicalCycleLength != null &&
+                _typicalCycleLength! > 0)
               Padding(
                 padding: const EdgeInsets.only(bottom: 15.0),
                 child: Column(
@@ -702,7 +766,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     LinearProgressIndicator(
                       value: progressValue,
                       backgroundColor: Colors.grey.shade300,
-                      color: colorScheme.primary, // Use primary color for progress
+                      color:
+                          colorScheme.primary, // Use primary color for progress
                       minHeight: 10,
                       borderRadius: BorderRadius.circular(5),
                     ),
@@ -718,16 +783,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? DateFormat('MMM dd, yyyy').format(_lastPeriodStartDate!)
                     : 'N/A',
                 Icons.calendar_today_rounded, // Calendar icon
-                Colors.pink.shade400
-            ),
+                Colors.pink.shade400),
             _buildInfoRow(
                 'Next Period Est.:',
                 _predictedNextPeriodStart != null
-                    ? DateFormat('MMM dd, yyyy').format(_predictedNextPeriodStart!)
+                    ? DateFormat('MMM dd, yyyy')
+                        .format(_predictedNextPeriodStart!)
                     : 'N/A',
                 Icons.bloodtype_outlined, // Blood drop icon
-                _predictedPeriodColor
-            ),
+                _predictedPeriodColor),
             _buildInfoRow(
                 'Ovulation Est.:',
                 _predictedOvulationDay != null
@@ -735,7 +799,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : 'N/A',
                 Icons.egg_alt_outlined, // Egg icon
                 _predictedOvulationTextColor // Use text color directly
-            ),
+                ),
             _buildInfoRow(
                 'Fertile Window:',
                 _predictedFertileWindow.isNotEmpty
@@ -743,7 +807,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : 'N/A',
                 Icons.favorite_border_rounded, // Heart outline icon
                 _predictedFertileTextColor // Use text color directly
-            ),
+                ),
             const SizedBox(height: 20),
             Text(
               'Note: These are initial estimates. Predictions will become more accurate as you log daily data!',
@@ -807,14 +871,16 @@ class _HomeScreenState extends State<HomeScreen> {
             color: const Color(0xFFEDE7F6), // Very light purple/lavender blush
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFD1C4E9).withOpacity(0.5), // Lighter purple shadow
+                color: const Color(0xFFD1C4E9)
+                    .withValues(alpha: 0.5), // Lighter purple shadow
                 blurRadius: 10,
                 spreadRadius: 3,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
-          padding: const EdgeInsets.all(8.0), // Padding inside card for calendar
+          padding:
+              const EdgeInsets.all(8.0), // Padding inside card for calendar
           child: Column(
             children: [
               TableCalendar(
@@ -823,14 +889,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 focusedDay: _focusedDay,
                 calendarFormat: CalendarFormat.month,
                 rowHeight: 50.0,
-                onDaySelected: (selectedDay, focusedDay) async { // Made async
+                onDaySelected: (selectedDay, focusedDay) async {
+                  // Made async
                   setState(() {
                     _focusedDay = focusedDay;
                   });
 
                   // Fetch and display log details for the selected day
                   final logData = await _fetchDailyLogForDate(selectedDay);
-                  if (mounted) { // Check if the widget is still in the widget tree
+                  if (mounted) {
+                    // Check if the widget is still in the widget tree
                     _showDailyLogDetails(context, selectedDay, logData);
                   }
                 },
@@ -841,8 +909,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   outsideDaysVisible: false,
                   markersAnchor: 0.9,
                   markersAlignment: Alignment.bottomCenter,
-                  defaultTextStyle: GoogleFonts.montserrat(color: Colors.grey.shade800, fontSize: 14),
-                  weekendTextStyle: GoogleFonts.montserrat(color: Colors.grey.shade600, fontSize: 14),
+                  defaultTextStyle: GoogleFonts.montserrat(
+                      color: Colors.grey.shade800, fontSize: 14),
+                  weekendTextStyle: GoogleFonts.montserrat(
+                      color: Colors.grey.shade600, fontSize: 14),
                   todayDecoration: const BoxDecoration(),
                 ),
                 headerStyle: HeaderStyle(
@@ -851,10 +921,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   titleTextStyle: GoogleFonts.montserrat(
                     fontSize: 20.0,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.primary, // Use primary color for calendar header
+                    color: colorScheme
+                        .primary, // Use primary color for calendar header
                   ),
-                  leftChevronIcon: Icon(Icons.chevron_left_rounded, color: colorScheme.primary.withOpacity(0.7), size: 30), // Lighter purple
-                  rightChevronIcon: Icon(Icons.chevron_right_rounded, color: colorScheme.primary.withOpacity(0.7), size: 30), // Lighter purple
+                  leftChevronIcon: Icon(Icons.chevron_left_rounded,
+                      color: colorScheme.primary.withValues(alpha: 0.7),
+                      size: 30), // Lighter purple
+                  rightChevronIcon: Icon(Icons.chevron_right_rounded,
+                      color: colorScheme.primary.withValues(alpha: 0.7),
+                      size: 30), // Lighter purple
                 ),
                 calendarBuilders: CalendarBuilders(
                   // TODAY BUILDER - Ensures today is always purple
@@ -864,7 +939,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: _todayFillColor, // Your specified purple fill
                         shape: BoxShape.circle,
-                        border: Border.all(color: _todayBorderColor, width: 2.5), // Your specified purple border
+                        border: Border.all(
+                            color: _todayBorderColor,
+                            width: 2.5), // Your specified purple border
                       ),
                       alignment: Alignment.center,
                       child: Text(
@@ -888,18 +965,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     final markerTypes = _getMarkerTypesForDay(day);
 
-                    Color textColor = Colors.grey.shade800; // Default text color
+                    Color textColor =
+                        Colors.grey.shade800; // Default text color
                     Color? backgroundCircleColor;
                     FontWeight textFontWeight = FontWeight.normal;
-                    BoxBorder? border; // Not used for these markers, but kept for consistency
+                    BoxBorder?
+                        border; // Not used for these markers, but kept for consistency
 
                     // Apply styles for period days (these are circles)
-                    if (markerTypes.contains(CalendarMarkerType.currentPeriod) && _lastPeriodStartDate != null) {
-                      int periodDayIndex = day.difference(_lastPeriodStartDate!).inDays;
-                      backgroundCircleColor = _periodShades[min(periodDayIndex, _periodShades.length - 1)];
+                    if (markerTypes
+                            .contains(CalendarMarkerType.currentPeriod) &&
+                        _lastPeriodStartDate != null) {
+                      int periodDayIndex =
+                          day.difference(_lastPeriodStartDate!).inDays;
+                      backgroundCircleColor = _periodShades[
+                          min(periodDayIndex, _periodShades.length - 1)];
                       textColor = Colors.white;
                       textFontWeight = FontWeight.bold;
-                    } else if (markerTypes.contains(CalendarMarkerType.predictedPeriod)) {
+                    } else if (markerTypes
+                        .contains(CalendarMarkerType.predictedPeriod)) {
                       backgroundCircleColor = _predictedPeriodColor;
                       textColor = Colors.white;
                       textFontWeight = FontWeight.bold;
@@ -908,10 +992,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Apply text colors for ovulation and fertile window (text-only markers on calendar)
                     // These apply only if no background circle color is already applied by period markers.
                     if (backgroundCircleColor == null) {
-                      if (markerTypes.contains(CalendarMarkerType.predictedOvulation)) {
+                      if (markerTypes
+                          .contains(CalendarMarkerType.predictedOvulation)) {
                         textColor = _predictedOvulationTextColor;
                         textFontWeight = FontWeight.bold;
-                      } else if (markerTypes.contains(CalendarMarkerType.predictedFertile)) {
+                      } else if (markerTypes
+                          .contains(CalendarMarkerType.predictedFertile)) {
                         textColor = _predictedFertileTextColor;
                         textFontWeight = FontWeight.bold;
                       }
@@ -919,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // Determine the final decoration for the day cell
                     BoxDecoration? dayDecoration;
-                    if (backgroundCircleColor != null || border != null) {
+                    if (backgroundCircleColor != null) {
                       dayDecoration = BoxDecoration(
                         color: backgroundCircleColor,
                         shape: BoxShape.circle,
@@ -943,21 +1029,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-              Divider(indent: 20, endIndent: 20, height: 1, color: Colors.grey.shade300),
+              Divider(
+                  indent: 20,
+                  endIndent: 20,
+                  height: 1,
+                  color: Colors.grey.shade300),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0, vertical: 15.0),
                 child: InkWell(
                   onTap: () => _showLegendDialog(context),
                   borderRadius: BorderRadius.circular(15),
-                  splashColor: colorScheme.primary.withOpacity(0.1), // Light purple splash
-                  highlightColor: colorScheme.primary.withOpacity(0.05), // Very light purple highlight
+                  splashColor: colorScheme.primary
+                      .withValues(alpha: 0.1), // Light purple splash
+                  highlightColor: colorScheme.primary
+                      .withValues(alpha: 0.05), // Very light purple highlight
                   child: Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.info_outline_rounded, size: 24, color: colorScheme.primary),
+                        Icon(Icons.info_outline_rounded,
+                            size: 24, color: colorScheme.primary),
                         const SizedBox(width: 10),
                         Text(
                           'View Calendar Legend',
@@ -988,7 +1082,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
           backgroundColor: Colors.white,
           title: Text(
             'Calendar Legend',
@@ -1005,7 +1100,8 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildLegendRow(
-                  color: _periodShades[2], // A mid-shade for general period representation
+                  color: _periodShades[
+                      2], // A mid-shade for general period representation
                   isCircle: true,
                   text: 'Current Period',
                 ),
@@ -1015,14 +1111,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   text: 'Next Period',
                 ),
                 _buildLegendRow(
-                  color: _predictedOvulationTextColor.withOpacity(0.2), // Light background for circle
-                  border: Border.all(color: _predictedOvulationTextColor, width: 2.0),
+                  color: _predictedOvulationTextColor.withValues(
+                      alpha: 0.2), // Light background for circle
+                  border: Border.all(
+                      color: _predictedOvulationTextColor, width: 2.0),
                   isCircle: true,
                   text: 'Ovulation',
                 ),
                 _buildLegendRow(
-                  color: _predictedFertileTextColor.withOpacity(0.2), // Light background for circle
-                  border: Border.all(color: _predictedFertileTextColor, width: 2.0),
+                  color: _predictedFertileTextColor.withValues(
+                      alpha: 0.2), // Light background for circle
+                  border:
+                      Border.all(color: _predictedFertileTextColor, width: 2.0),
                   isCircle: true,
                   text: 'Fertile Window',
                 ),
@@ -1074,15 +1174,15 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 24,
             decoration: isCircle
                 ? BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: border,
-            )
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: border,
+                  )
                 : BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(4),
-              border: border,
-            ),
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                    border: border,
+                  ),
           ),
           const SizedBox(width: 16),
           Text(

@@ -52,7 +52,8 @@ class FoodOptionsScreen extends StatelessWidget {
                   context,
                   icon: Icons.qr_code_scanner,
                   title: 'Scan Food (Packed)',
-                  subtitle: 'Scan to analyze packed food for PCOS diet insights',
+                  subtitle:
+                      'Scan to analyze packed food for PCOS diet insights',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -67,7 +68,8 @@ class FoodOptionsScreen extends StatelessWidget {
                   context,
                   icon: Icons.fastfood, // A relevant icon for cooked food
                   title: 'Analyze Cooked Food',
-                  subtitle: 'Upload photos of home-cooked meals for PCOS dietary suggestions',
+                  subtitle:
+                      'Upload photos of home-cooked meals for PCOS dietary suggestions',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -89,26 +91,34 @@ class FoodOptionsScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             IconButton(
-              icon: Icon(Icons.home, color: Colors.grey.shade600, size: 28), // Home icon unselected
+              icon: Icon(Icons.home,
+                  color: Colors.grey.shade600,
+                  size: 28), // Home icon unselected
               onPressed: () {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const HomeScreen()),
-                      (Route<dynamic> route) => false,
+                  (Route<dynamic> route) => false,
                 );
               },
             ),
             IconButton(
-              icon: Icon(Icons.restaurant_menu, color: Theme.of(context).colorScheme.primary, size: 28), // Changed to a general food icon (selected)
+              icon: Icon(Icons.restaurant_menu,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 28), // Changed to a general food icon (selected)
               onPressed: () {
                 // Already on this screen, do nothing or provide feedback
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('You are already on the Food Options screen!')),
+                  const SnackBar(
+                      content:
+                          Text('You are already on the Food Options screen!')),
                 );
               },
             ),
             // No Spacer needed as there's no FAB
             IconButton(
-              icon: Icon(Icons.self_improvement, color: Colors.grey.shade600, size: 28), // Meditation/Symptom icon unselected
+              icon: Icon(Icons.self_improvement,
+                  color: Colors.grey.shade600,
+                  size: 28), // Meditation/Symptom icon unselected
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -123,7 +133,8 @@ class FoodOptionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOptionCard(BuildContext context, {
+  Widget _buildOptionCard(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
@@ -140,14 +151,14 @@ class FoodOptionsScreen extends StatelessWidget {
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.white, color.withOpacity(0.1)],
+              colors: [Colors.white, color.withValues(alpha: 0.1)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),

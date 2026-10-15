@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'package:pcos_app/services/api_config.dart';
+import 'package:pcos_app/services/account_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:camera/camera.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' show join;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -60,7 +60,8 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
         enableAudio: false,
       );
 
-      _initializeCameraControllerFuture = _cameraController!.initialize().then((_) {
+      _initializeCameraControllerFuture =
+          _cameraController!.initialize().then((_) {
         if (!mounted) {
           return;
         }
@@ -71,14 +72,16 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
             case 'CameraAccessDenied':
               if (mounted) {
                 setState(() {
-                  _extractedText = 'Camera access denied. Please grant permission in settings.';
+                  _extractedText =
+                      'Camera access denied. Please grant permission in settings.';
                 });
               }
               break;
             default:
               if (mounted) {
                 setState(() {
-                  _extractedText = 'Error initializing camera: ${e.description}';
+                  _extractedText =
+                      'Error initializing camera: ${e.description}';
                 });
               }
               print('Error initializing camera: ${e.description}');
@@ -108,18 +111,22 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
       _backendResponse = 'Sending text to backend...';
     });
 
-    final Uri uri = Uri.parse('http://192.168.68.220:8000/extract_ingredients');
+    final uri =
+        ApiConfig.endpoint(ApiConfig.packagedFood, '/extract_ingredients');
 
     try {
-      final response = await http.post(
-        uri,
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<String, String>{
-          'text': textToSend,
-        }),
-      );
+      final response = await http
+          .post(
+            uri,
+            headers: <String, String>{
+              ...await AccountService.instance.foodAuthorizationHeaders(),
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncode(<String, String>{
+              'text': textToSend,
+            }),
+          )
+          .timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
@@ -131,7 +138,8 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
             formattedResponse += '  - ${item['original_extracted_name']}:\n';
             if (item['is_exact_match']) {
               formattedResponse += '    Matched Name: ${item['name']}\n';
-            } else if (item['name'] != item['original_extracted_name'] && item['name'] != null) {
+            } else if (item['name'] != item['original_extracted_name'] &&
+                item['name'] != null) {
               formattedResponse += '    Closest Match: ${item['name']}\n';
             } else {
               formattedResponse += '    Status: ${item['name']} (not found)\n';
@@ -141,7 +149,8 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
           }
           _backendResponse = formattedResponse;
         } else {
-          _backendResponse = 'Backend acknowledged: ${responseBody['message'] ?? 'Success'}';
+          _backendResponse =
+              'Backend acknowledged: ${responseBody['message'] ?? 'Success'}';
         }
 
         setState(() {});
@@ -149,7 +158,8 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
         print('Backend response body: ${response.body}');
       } else {
         setState(() {
-          _backendResponse = 'Error from backend: ${response.statusCode} - ${response.body}';
+          _backendResponse =
+              'Error from backend: ${response.statusCode} - ${response.body}';
         });
         print('Failed to send text. Status code: ${response.statusCode}');
         print('Response body: ${response.body}');
@@ -253,7 +263,8 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
     }
 
     try {
-      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? pickedFile =
+          await _picker.pickImage(source: ImageSource.gallery);
 
       if (pickedFile != null) {
         final croppedFile = await ImageCropper().cropImage(
@@ -320,8 +331,10 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
   Future<void> _processImageForText(String imagePath) async {
     try {
       final InputImage inputImage = InputImage.fromFilePath(imagePath);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      final textRecognizer =
+          TextRecognizer(script: TextRecognitionScript.latin);
+      final RecognizedText recognizedText =
+          await textRecognizer.processImage(inputImage);
 
       if (mounted) {
         setState(() {
@@ -330,7 +343,8 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
               : recognizedText.text;
         });
 
-        if (_extractedText.isNotEmpty && _extractedText != 'No text found or recognized.') {
+        if (_extractedText.isNotEmpty &&
+            _extractedText != 'No text found or recognized.') {
           await _sendTextToFastAPI(_extractedText);
         } else {
           if (mounted) {
@@ -369,6 +383,14 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Scan a label from gallery',
+            onPressed:
+                _isProcessing ? null : _pickImageFromGalleryAndRecognizeText,
+            icon: const Icon(Icons.photo_library_outlined),
+          )
+        ],
         iconTheme: IconThemeData(
           color: Theme.of(context).colorScheme.onPrimary,
         ),
@@ -377,14 +399,17 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
         future: _initializeCameraControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            if (_cameraController == null || !_cameraController!.value.isInitialized) {
+            if (_cameraController == null ||
+                !_cameraController!.value.isInitialized) {
               return Center(
                 child: Text(
                   _extractedText.isNotEmpty
                       ? _extractedText
                       : "Camera not available or permissions not granted.",
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(fontSize: 18, color: Theme.of(context).colorScheme.onPrimary),
+                  style: GoogleFonts.montserrat(
+                      fontSize: 18,
+                      color: Theme.of(context).colorScheme.onPrimary),
                 ),
               );
             }
@@ -409,22 +434,26 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
                                 : () => _takePictureAndRecognizeText(),
                             child: Center(
                               child: _isProcessing
-                                  ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onPrimary)
+                                  ? CircularProgressIndicator(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimary)
                                   : Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'Tap anywhere to capture image',
-                                    style: GoogleFonts.montserrat(
-                                      color: Colors.white.withOpacity(0.8),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'Tap anywhere to capture image',
+                                          style: GoogleFonts.montserrat(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.8),
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 20),
+                                      ],
                                     ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 20),
-                                ],
-                              ),
                             ),
                           ),
                         ),
@@ -439,28 +468,32 @@ class _ImageToTextScreenState extends State<ImageToTextScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Center(
                       child: _isProcessing
-                          ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSurface)
+                          ? CircularProgressIndicator(
+                              color: Theme.of(context).colorScheme.onSurface)
                           : SingleChildScrollView(
-                        child: SelectableText(
-                          _extractedText.isEmpty
-                              ? 'Place the camera over the text and tap to scan.'
-                              : (_backendResponse.isEmpty
-                              ? _extractedText
-                              : 'Extracted:\n$_extractedText\n\n$_backendResponse'),
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.montserrat(
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
+                              child: SelectableText(
+                                _extractedText.isEmpty
+                                    ? 'Place the camera over the text and tap to scan.'
+                                    : (_backendResponse.isEmpty
+                                        ? _extractedText
+                                        : 'Extracted:\n$_extractedText\n\n$_backendResponse'),
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 16,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 ),
               ],
             );
           } else {
-            return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.onPrimary));
+            return Center(
+                child: CircularProgressIndicator(
+                    color: Theme.of(context).colorScheme.onPrimary));
           }
         },
       ),

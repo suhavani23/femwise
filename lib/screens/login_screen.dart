@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'password_recovery_screen.dart';
+import 'package:femwise/widgets/pcos_logo.dart';
 import 'package:femwise/services/account_service.dart';
+import 'package:femwise/services/api_config.dart';
 import 'package:femwise/screens/home_screen.dart';
 import 'package:femwise/screens/onboarding_screen.dart';
 import 'package:femwise/screens/sign_up_screen.dart';
@@ -19,6 +22,59 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  Future<void> _showServerConfigDialog() async {
+    final controller = TextEditingController(text: ApiConfig.accounts);
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backend Server URL'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the address of your PC running the backend:\n(e.g., http://10.60.73.214:8002)',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'http://10.60.73.214:8002',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                await ApiConfig.setAccountsUrl(controller.text.trim());
+                if (mounted) {
+                  setState(() {
+                    _errorMessage = null;
+                  });
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('Server set to: ${ApiConfig.accounts}')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -31,18 +87,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final userData = await AccountService.instance.getProfile();
     final bool onboardingComplete = userData['onboardingComplete'] == true;
 
-    print('LoginScreen: User authenticated: ${user.email}, Onboarding complete: $onboardingComplete');
+    print(
+        'LoginScreen: User authenticated: ${user.email}, Onboarding complete: $onboardingComplete');
 
     if (mounted) {
       if (onboardingComplete) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const HomeScreen()),
-              (route) => false,
+          (route) => false,
         );
       } else {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-              (route) => false,
+          (route) => false,
         );
       }
     }
@@ -65,9 +122,11 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           await _handlePostAuthNavigation(user);
         }
-
       } on AccountException catch (e) {
-        if (mounted) setState(() { _errorMessage = e.message; });
+        if (mounted)
+          setState(() {
+            _errorMessage = e.message;
+          });
       } catch (e) {
         setState(() {
           _errorMessage = 'An unexpected error occurred: $e';
@@ -89,11 +148,18 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true, // Allows body to go behind transparent app bar
+      extendBodyBehindAppBar:
+          true, // Allows body to go behind transparent app bar
       appBar: AppBar(
         backgroundColor: Colors.transparent, // Transparent app bar
         elevation: 0, // No shadow
-        // Removed the title property as requested
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_rounded, color: Colors.deepPurple),
+            tooltip: 'Server Settings',
+            onPressed: _showServerConfigDialog,
+          ),
+        ],
       ),
       body: Container(
         // Background gradient from home_screen.dart
@@ -114,30 +180,31 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(24.0),
             child: Card(
               elevation: 12, // Increased elevation for a more prominent card
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-              color: Colors.white.withOpacity(0.95), // Slightly opaque white card
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25)),
+              color: Colors.white
+                  .withValues(alpha: 0.95), // Slightly opaque white card
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 40.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 30.0, vertical: 40.0),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // Make column take minimum space
+                    mainAxisSize:
+                        MainAxisSize.min, // Make column take minimum space
                     children: <Widget>[
                       // App Logo
-                      Image.asset(
-                        'assets/logo.jpg', // Path to your logo image
-                        height: 120, // Adjust height as needed
-                        width: 120, // Adjust width as needed
-                        fit: BoxFit.contain,
-                      ),
+                      const PcosLogo(),
                       const SizedBox(height: 20),
                       Text(
                         'Welcome Back!',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.playfairDisplay( // Attractive style for greeting
+                        style: GoogleFonts.playfairDisplay(
+                          // Attractive style for greeting
                           fontSize: 34,
                           fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple.shade700, // Darker purple for heading
+                          color: Colors
+                              .deepPurple.shade700, // Darker purple for heading
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -155,24 +222,31 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        style: GoogleFonts.montserrat(fontSize: 16, color: Colors.grey.shade800),
+                        style: GoogleFonts.montserrat(
+                            fontSize: 16, color: Colors.grey.shade800),
                         decoration: InputDecoration(
                           labelText: 'Email',
-                          labelStyle: GoogleFonts.montserrat(color: Colors.grey.shade600),
+                          labelStyle: GoogleFonts.montserrat(
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none, // Remove default border
+                            borderSide:
+                                BorderSide.none, // Remove default border
                           ),
                           filled: true,
-                          fillColor: Colors.deepPurple.shade50.withOpacity(0.5), // Light purple fill
-                          prefixIcon: Icon(Icons.email, color: Colors.deepPurple.shade400),
+                          fillColor: Colors.deepPurple.shade50
+                              .withValues(alpha: 0.5), // Light purple fill
+                          prefixIcon: Icon(Icons.email,
+                              color: Colors.deepPurple.shade400),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade400, width: 2),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade400, width: 2),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 1),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade200, width: 1),
                           ),
                         ),
                         validator: (value) {
@@ -191,24 +265,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: true,
-                        style: GoogleFonts.montserrat(fontSize: 16, color: Colors.grey.shade800),
+                        style: GoogleFonts.montserrat(
+                            fontSize: 16, color: Colors.grey.shade800),
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          labelStyle: GoogleFonts.montserrat(color: Colors.grey.shade600),
+                          labelStyle: GoogleFonts.montserrat(
+                              color: Colors.grey.shade600),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: Colors.deepPurple.shade50.withOpacity(0.5),
-                          prefixIcon: Icon(Icons.lock, color: Colors.deepPurple.shade400),
+                          fillColor:
+                              Colors.deepPurple.shade50.withValues(alpha: 0.5),
+                          prefixIcon: Icon(Icons.lock,
+                              color: Colors.deepPurple.shade400),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade400, width: 2),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade400, width: 2),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 1),
+                            borderSide: BorderSide(
+                                color: Colors.deepPurple.shade200, width: 1),
                           ),
                         ),
                         validator: (value) {
@@ -227,10 +307,29 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (_errorMessage != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 20.0),
-                          child: Text(
-                            _errorMessage!,
-                            style: GoogleFonts.montserrat(color: Colors.red.shade700, fontSize: 14, fontWeight: FontWeight.w500),
-                            textAlign: TextAlign.center,
+                          child: Column(
+                            children: [
+                              Text(
+                                _errorMessage!,
+                                style: GoogleFonts.montserrat(
+                                    color: Colors.red.shade700,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_errorMessage!.contains('SocketException') ||
+                                  _errorMessage!.contains('Connection timed out') ||
+                                  _errorMessage!.contains('10.0.2.2'))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: TextButton.icon(
+                                    icon: const Icon(Icons.settings_ethernet,
+                                        size: 18),
+                                    label: const Text('Change Server IP'),
+                                    onPressed: _showServerConfigDialog,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
 
@@ -238,15 +337,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         width: double.infinity, // Make button full width
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15), // Rounded corners for button
+                          borderRadius: BorderRadius.circular(
+                              15), // Rounded corners for button
                           gradient: const LinearGradient(
-                            colors: [Color(0xFFD3A4F4), Color(0xFF8A2BE2)], // Lighter to Darker Purple
+                            colors: [
+                              Color(0xFFD3A4F4),
+                              Color(0xFF8A2BE2)
+                            ], // Lighter to Darker Purple
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF8A2BE2).withOpacity(0.4),
+                              color: const Color(0xFF8A2BE2)
+                                  .withValues(alpha: 0.4),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -256,36 +360,55 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _isLoading ? null : _signInUser,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 18),
-                            backgroundColor: Colors.transparent, // Make transparent to show gradient
-                            shadowColor: Colors.transparent, // No shadow from button itself
+                            backgroundColor: Colors
+                                .transparent, // Make transparent to show gradient
+                            shadowColor: Colors
+                                .transparent, // No shadow from button itself
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15),
                             ),
                           ),
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
                               : Text(
-                            'Log In',
-                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
+                                  'Log In',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 20),
 
+                      TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const PasswordRecoveryScreen())),
+                        child: const Text('Forgot password?'),
+                      ),
                       // Sign Up Button (centered)
-                      Center( // Centered as requested
+                      Center(
+                        // Centered as requested
                         child: TextButton(
                           onPressed: _isLoading
                               ? null
                               : () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                            );
-                          },
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const SignUpScreen()),
+                                  );
+                                },
                           child: Text(
                             'Don\'t have an account? Sign Up',
                             style: GoogleFonts.montserrat(
-                              color: Colors.deepPurple.shade700, // Darker purple for text button
+                              color: Colors.deepPurple
+                                  .shade700, // Darker purple for text button
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),

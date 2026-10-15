@@ -51,12 +51,12 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 
 class CustomBackgroundContainer extends StatelessWidget {
   final Widget child; // This will hold the unique content of each screen
-  final String backgroundImagePath; // Path to the single combined background image
+  final String
+      backgroundImagePath; // Path to the single combined background image
 
   const CustomBackgroundContainer({
     Key? key,

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/account_service.dart';
-import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
-import 'screens/splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +19,11 @@ class MyApp extends StatelessWidget {
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
         home: const AccountStartup(),
-        routes: {'/login': (_) => const LoginScreen()},
+        routes: {
+          '/login': (_) => const HomeScreen(),
+          '/home': (_) => const HomeScreen(),
+          '/profile': (_) => const OnboardingScreen(),
+        },
         debugShowCheckedModeBanner: false,
       );
 }
@@ -45,20 +47,26 @@ class _AccountStartupState extends State<AccountStartup> {
         future: _initialization,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
           }
           if (snapshot.hasError) {
-            return Scaffold(body: Center(child: Column(
+            return Scaffold(
+                body: Center(
+                    child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Unable to restore your session. Check your connection.'),
-                TextButton(onPressed: () => setState(() {
-                  _initialization = AccountService.instance.initialize();
-                }), child: const Text('Retry')),
+                const Text('Unable to open local storage. Please retry.'),
+                TextButton(
+                    onPressed: () => setState(() {
+                          _initialization =
+                              AccountService.instance.initialize();
+                        }),
+                    child: const Text('Retry')),
               ],
             )));
           }
-          return const SplashScreen();
+          return const HomeScreen();
         },
       );
 }
@@ -70,20 +78,25 @@ class AuthWrapper extends StatelessWidget {
         stream: AccountService.instance.authStateChanges(),
         initialData: AccountService.instance.currentUser,
         builder: (context, snapshot) {
-          if (snapshot.data == null) return const LoginScreen();
+          if (snapshot.data == null) return const AccountStartup();
           return FutureBuilder<Map<String, dynamic>>(
             future: AccountService.instance.getProfile(),
             builder: (context, profile) {
               if (profile.hasError) {
-                return const Scaffold(body: Center(
-                    child: Text('Unable to load your profile. Please reopen the app to retry.')));
+                return const Scaffold(
+                    body: Center(
+                        child: Text(
+                            'Unable to load your profile. Please reopen the app to retry.')));
               }
               if (!profile.hasData) {
-                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()));
               }
               return profile.data!['onboardingComplete'] == true
-                  ? const HomeScreen() : const OnboardingScreen();
+                  ? const HomeScreen()
+                  : const OnboardingScreen();
             },
           );
         },
       );
+}

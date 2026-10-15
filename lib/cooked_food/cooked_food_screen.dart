@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:pcos_app/services/api_config.dart';
+import 'package:pcos_app/services/account_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io'; // For File
 import 'package:http/http.dart' as http; // For making HTTP requests
 import 'package:path/path.dart' as path; // For handling file paths
 import 'dart:convert'; // For JSON encoding/decoding
-import 'package:http_parser/http_parser.dart' show MediaType; // Added for explicit content type
+import 'package:http_parser/http_parser.dart'
+    show MediaType; // Added for explicit content type
 import 'dart:math' as math; // For PieChartPainter
 
 // Temporary main function to run this screen directly
@@ -26,7 +29,8 @@ class MyAppForCookedFood extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
       ),
-      home: const FoodCaptureScreen(), // This correctly matches the class name below
+      home:
+          const FoodCaptureScreen(), // This correctly matches the class name below
     );
   }
 }
@@ -47,7 +51,6 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
   // New state variables for detailed analysis from packed_foods_scan
   String _pcosVerdictAndExplanation = '';
   List<dynamic> _ingredientsSummary = [];
-  List<dynamic> _extractedIngredientDetails = []; // To store raw ingredient details
   bool _showExplanationDialog = false;
 
   final ImagePicker _picker = ImagePicker(); // Image picker instance
@@ -62,7 +65,6 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
         // Reset previous analysis results
         _pcosVerdictAndExplanation = '';
         _ingredientsSummary = [];
-        _extractedIngredientDetails = [];
         _showExplanationDialog = false;
       });
     }
@@ -72,7 +74,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
   Future<void> _uploadFoodData() async {
     if (_imageFile == null || _dishNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an image and enter a dish name.')),
+        const SnackBar(
+            content: Text('Please select an image and enter a dish name.')),
       );
       return;
     }
@@ -83,14 +86,15 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
       // Clear previous results while processing
       _pcosVerdictAndExplanation = '';
       _ingredientsSummary = [];
-      _extractedIngredientDetails = [];
       _showExplanationDialog = false;
     });
 
-    final uri = Uri.parse('http://192.168.1.100:8000/upload_food_data/'); // <<< VERIFY THIS IP!
+    final uri = ApiConfig.endpoint(ApiConfig.cookedFood, '/upload_food_data/');
     var request = http.MultipartRequest('POST', uri);
 
     try {
+      request.headers
+          .addAll(await AccountService.instance.foodAuthorizationHeaders());
       // Determine the MIME type based on file extension
       String fileExtension = path.extension(_imageFile!.path).toLowerCase();
       String? mimeType;
@@ -101,7 +105,9 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
         mimeType = 'image/png';
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unsupported image format. Please use JPG/JPEG or PNG.')),
+          const SnackBar(
+              content: Text(
+                  'Unsupported image format. Please use JPG/JPEG or PNG.')),
         );
         setState(() {
           _isLoading = false;
@@ -116,23 +122,28 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           'file', // This 'file' key MUST match the FastAPI @app.post parameter name (file: UploadFile)
           _imageFile!.path,
           filename: path.basename(_imageFile!.path),
-          contentType: MediaType('image', fileExtension.substring(1)), // e.g., image/jpeg or image/png
+          contentType: MediaType.parse(mimeType),
         ),
       );
 
       // Add dish name field to the request
-      request.fields['dish_name'] = _dishNameController.text.trim(); // This 'dish_name' key MUST match FastAPI @app.post parameter name (dish_name: str = Form(...))
+      request.fields['dish_name'] = _dishNameController.text
+          .trim(); // This 'dish_name' key MUST match FastAPI @app.post parameter name (dish_name: str = Form(...))
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final response = await (() async {
+        final streamedResponse = await request.send();
+        return http.Response.fromStream(streamedResponse);
+      })()
+          .timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
 
         setState(() {
-          _pcosVerdictAndExplanation = responseData['pcos_verdict_and_explanation'] ?? 'No PCOS verdict provided.';
+          _pcosVerdictAndExplanation =
+              responseData['pcos_verdict_and_explanation'] ??
+                  'No PCOS verdict provided.';
           _ingredientsSummary = responseData['ingredients_summary'] ?? [];
-          _extractedIngredientDetails = responseData['extracted_ingredient_details'] ?? [];
 
           // Update backend response to show verdict immediately
           final parsed = _parseBackendResponse(_pcosVerdictAndExplanation);
@@ -144,7 +155,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
         );
       } else {
         // Handle non-200 status codes (e.g., 400, 500)
-        String errorMessage = 'Failed to upload data. Status: ${response.statusCode}';
+        String errorMessage =
+            'Failed to upload data. Status: ${response.statusCode}';
         try {
           final Map<String, dynamic> errorData = json.decode(response.body);
           if (errorData.containsKey('detail')) {
@@ -158,7 +170,6 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           _backendResponse = errorMessage;
           _pcosVerdictAndExplanation = '';
           _ingredientsSummary = [];
-          _extractedIngredientDetails = [];
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage)),
@@ -170,12 +181,12 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
         _backendResponse = 'Network Error: $e';
         _pcosVerdictAndExplanation = '';
         _ingredientsSummary = [];
-        _extractedIngredientDetails = [];
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Network error: $e')),
       );
-      print('HTTP request error: $e'); // Print detailed error to console for debugging
+      print(
+          'HTTP request error: $e'); // Print detailed error to console for debugging
     } finally {
       setState(() {
         _isLoading = false; // Always stop loading indicator
@@ -195,13 +206,15 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
     String explanation = response;
 
     final verdictMatch = RegExp(r'Verdict: (.*?)\n').firstMatch(response);
-    final explanationMatch = RegExp(r'Explanation: (.*)', dotAll: true).firstMatch(response);
+    final explanationMatch =
+        RegExp(r'Explanation: (.*)', dotAll: true).firstMatch(response);
 
     if (verdictMatch != null) {
       verdict = verdictMatch.group(1)?.trim() ?? 'N/A';
     }
     if (explanationMatch != null) {
-      explanation = explanationMatch.group(1)?.trim() ?? 'No detailed explanation provided.';
+      explanation = explanationMatch.group(1)?.trim() ??
+          'No detailed explanation provided.';
     }
 
     return {
@@ -252,7 +265,10 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
   Widget _buildBackendResponseCard(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     // Use _pcosVerdictAndExplanation for verdict display if available, otherwise _backendResponse
-    final parsedResponse = _parseBackendResponse(_pcosVerdictAndExplanation.isNotEmpty ? _pcosVerdictAndExplanation : _backendResponse);
+    final parsedResponse = _parseBackendResponse(
+        _pcosVerdictAndExplanation.isNotEmpty
+            ? _pcosVerdictAndExplanation
+            : _backendResponse);
     final String verdict = parsedResponse['verdict']!;
     final Color verdictColor = _getVerdictColor(verdict);
     final IconData verdictIcon = _getVerdictIcon(verdict);
@@ -267,7 +283,7 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           color: const Color(0xFFEDE7F6), // Use theme surface color
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5),
+              color: const Color(0xFFD1C4E9).withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -316,17 +332,22 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                 ),
               )
             else if (_pcosVerdictAndExplanation.isNotEmpty)
-            // This is the verdict display, styled to match the image
+              // This is the verdict display, styled to match the image
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                 decoration: BoxDecoration(
-                  color: verdictColor.withOpacity(0.1), // Light background color
-                  borderRadius: BorderRadius.circular(12), // Changed to 12 for blunt edges
-                  border: Border.all(color: verdictColor, width: 1.5), // Colored border
-                  boxShadow: [ // Subtle shadow for depth
+                  color: verdictColor.withValues(
+                      alpha: 0.1), // Light background color
+                  borderRadius: BorderRadius.circular(
+                      12), // Changed to 12 for blunt edges
+                  border: Border.all(
+                      color: verdictColor, width: 1.5), // Colored border
+                  boxShadow: [
+                    // Subtle shadow for depth
                     BoxShadow(
-                      color: verdictColor.withOpacity(0.2),
+                      color: verdictColor.withValues(alpha: 0.2),
                       blurRadius: 5,
                       spreadRadius: 1,
                       offset: const Offset(0, 3),
@@ -334,7 +355,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                   ],
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center, // Center the content
+                  mainAxisAlignment:
+                      MainAxisAlignment.center, // Center the content
                   children: [
                     Icon(
                       verdictIcon,
@@ -342,7 +364,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                       size: 30, // Slightly larger icon
                     ),
                     const SizedBox(width: 12), // Increased spacing
-                    Flexible( // Use Flexible to prevent overflow
+                    Flexible(
+                      // Use Flexible to prevent overflow
                       child: Text(
                         'Verdict: ${verdict.capitalize()}', // Capitalize verdict for display
                         style: GoogleFonts.montserrat(
@@ -399,7 +422,9 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           categoryCounts['good'] = (categoryCounts['good'] ?? 0) + 1;
         } else if (classification == 'bad' || classification == 'harmful') {
           categoryCounts['bad'] = (categoryCounts['bad'] ?? 0) + 1;
-        } else if (classification == 'moderate' || classification == 'generally recommended' || classification == 'potentially bad if processed') {
+        } else if (classification == 'moderate' ||
+            classification == 'generally recommended' ||
+            classification == 'potentially bad if processed') {
           categoryCounts['moderate'] = (categoryCounts['moderate'] ?? 0) + 1;
         } else {
           categoryCounts['unknown'] = (categoryCounts['unknown'] ?? 0) + 1;
@@ -434,7 +459,7 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           color: const Color(0xFFEDE7F6), // Use theme surface color
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5),
+              color: const Color(0xFFD1C4E9).withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -529,7 +554,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
     }
   }
 
-  Widget _buildLegend(Map<String, int> categoryCounts, Map<String, Color> categoryColors, int totalCount) {
+  Widget _buildLegend(Map<String, int> categoryCounts,
+      Map<String, Color> categoryColors, int totalCount) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,7 +574,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
               ),
               Text(
                 '${entry.key.capitalize()}: ${entry.value} ($percentage%)',
-                style: GoogleFonts.montserrat(fontSize: 14, color: colorScheme.onSurface),
+                style: GoogleFonts.montserrat(
+                    fontSize: 14, color: colorScheme.onSurface),
               ),
             ],
           ),
@@ -572,7 +599,7 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           color: const Color(0xFFEDE7F6), // Use theme surface color
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5),
+              color: const Color(0xFFD1C4E9).withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -596,14 +623,19 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
               spacing: 8.0,
               runSpacing: 8.0,
               children: _ingredientsSummary.map((ingredientData) {
-                final String ingredientName = ingredientData[0].toString().capitalize();
-                final String classification = ingredientData[1].toString().toLowerCase();
+                final String ingredientName =
+                    ingredientData[0].toString().capitalize();
+                final String classification =
+                    ingredientData[1].toString().toLowerCase();
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0, vertical: 8.0),
                   decoration: BoxDecoration(
                     color: _getIngredientTagColor(classification),
                     borderRadius: BorderRadius.circular(8.0),
-                    border: Border.all(color: _getIngredientTagBorderColor(classification), width: 1.0),
+                    border: Border.all(
+                        color: _getIngredientTagBorderColor(classification),
+                        width: 1.0),
                   ),
                   child: Text(
                     ingredientName,
@@ -623,7 +655,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
   }
 
   // Helper function to build formatted explanation text
-  List<InlineSpan> _buildFormattedTextSpans(String text, ColorScheme colorScheme) {
+  List<InlineSpan> _buildFormattedTextSpans(
+      String text, ColorScheme colorScheme) {
     final List<InlineSpan> spans = [];
     // Regex to find keywords. Added more PCOS-related terms.
     final RegExp keywordRegex = RegExp(
@@ -637,16 +670,44 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
         Color? keywordColor;
         FontWeight fontWeight = FontWeight.bold;
         // Determine color based on keyword sentiment
-        if (['good', 'recommended', 'beneficial', 'healthy fats', 'whole foods', 'nutrients', 'vitamins', 'minerals', 'fiber', 'lifestyle'].contains(keyword.toLowerCase())) {
+        if ([
+          'good',
+          'recommended',
+          'beneficial',
+          'healthy fats',
+          'whole foods',
+          'nutrients',
+          'vitamins',
+          'minerals',
+          'fiber',
+          'lifestyle'
+        ].contains(keyword.toLowerCase())) {
           keywordColor = Colors.green.shade700;
-        } else if (['harmful', 'bad', 'not recommended', 'detrimental', 'sugar', 'processed foods', 'unhealthy fats', 'refined grains', 'avoid'].contains(keyword.toLowerCase())) {
+        } else if ([
+          'harmful',
+          'bad',
+          'not recommended',
+          'detrimental',
+          'sugar',
+          'processed foods',
+          'unhealthy fats',
+          'refined grains',
+          'avoid'
+        ].contains(keyword.toLowerCase())) {
           keywordColor = Colors.red.shade700;
-        } else if (['moderate', 'limit', 'dairy', 'gluten', 'potentially harmful'].contains(keyword.toLowerCase())) {
+        } else if ([
+          'moderate',
+          'limit',
+          'dairy',
+          'gluten',
+          'potentially harmful'
+        ].contains(keyword.toLowerCase())) {
           keywordColor = Colors.orange.shade700;
         } else {
           // Default to onSurface for other matched keywords, no purple
           keywordColor = colorScheme.onSurface;
-          fontWeight = FontWeight.normal; // Not bold if not a specific sentiment keyword
+          fontWeight =
+              FontWeight.normal; // Not bold if not a specific sentiment keyword
         }
         spans.add(
           TextSpan(
@@ -681,12 +742,14 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
     final String explanation = parsedResponse['explanation']!;
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     // Split the explanation into paragraphs or points based on newlines
-    final List<String> explanationPoints = explanation.split('\n').where((s) => s.trim().isNotEmpty).toList();
+    final List<String> explanationPoints =
+        explanation.split('\n').where((s) => s.trim().isNotEmpty).toList();
 
     return AlertDialog(
       title: Text(
         'Detailed PCOS Explanation',
-        style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: colorScheme.primary),
+        style: GoogleFonts.montserrat(
+            fontWeight: FontWeight.bold, color: colorScheme.primary),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -709,7 +772,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                 );
               }
               // Skip "Verdict:" and "Explanation:" lines if they appear as points
-              if (point.trim().toLowerCase().startsWith('verdict:') || point.trim().toLowerCase().startsWith('explanation:')) {
+              if (point.trim().toLowerCase().startsWith('verdict:') ||
+                  point.trim().toLowerCase().startsWith('explanation:')) {
                 return const SizedBox.shrink(); // Hide this point
               }
               return Padding(
@@ -722,14 +786,16 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: colorScheme.secondary, // Use theme secondary color for bullet points
+                        color: colorScheme
+                            .secondary, // Use theme secondary color for bullet points
                         shape: BoxShape.circle,
                       ),
                     ),
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          children: _buildFormattedTextSpans(point, colorScheme),
+                          children:
+                              _buildFormattedTextSpans(point, colorScheme),
                         ),
                       ),
                     ),
@@ -759,7 +825,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
   Widget _buildExplanationAndRawTextCard(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final parsedResponse = _parseBackendResponse(_pcosVerdictAndExplanation);
-    final bool hasDetailedExplanation = _pcosVerdictAndExplanation.isNotEmpty && parsedResponse['explanation']!.isNotEmpty;
+    final bool hasDetailedExplanation = _pcosVerdictAndExplanation.isNotEmpty &&
+        parsedResponse['explanation']!.isNotEmpty;
 
     if (!hasDetailedExplanation) {
       return const SizedBox.shrink();
@@ -775,7 +842,7 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           color: const Color(0xFFEDE7F6), // Use theme surface color
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5),
+              color: const Color(0xFFD1C4E9).withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -815,7 +882,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.secondary,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -830,11 +898,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final ColorScheme colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -903,7 +968,11 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           child: Ink(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: _isLoading ? [Colors.grey.shade400, Colors.grey.shade600] // Grey out when loading
+                colors: _isLoading
+                    ? [
+                        Colors.grey.shade400,
+                        Colors.grey.shade600
+                      ] // Grey out when loading
                     : [const Color(0xFFD3A4F4), const Color(0xFF8A2BE2)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -911,37 +980,41 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
               borderRadius: BorderRadius.circular(50),
             ),
             child: Center(
-              child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Icon(
-                Icons.cloud_upload_outlined, // Changed icon for clarity
-                color: Colors.white,
-                size: 36,
-              ),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Icon(
+                      Icons.cloud_upload_outlined, // Changed icon for clarity
+                      color: Colors.white,
+                      size: 36,
+                    ),
             ),
           ),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat, // Center the FAB
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.centerFloat, // Center the FAB
       // Conditionally show the detailed explanation dialog
       bottomSheet: _showExplanationDialog
           ? Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showExplanationDialog = false;
-                });
-              },
-              child: Container(
-                color: Colors.black.withOpacity(0.5), // Semi-transparent overlay
-              ),
-            ),
-          ),
-          Center(
-            child: _buildExplanationDialog(context),
-          ),
-        ],
-      )
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showExplanationDialog = false;
+                      });
+                    },
+                    child: Container(
+                      color: Colors.black
+                          .withValues(alpha: 0.5), // Semi-transparent overlay
+                    ),
+                  ),
+                ),
+                Center(
+                  child: _buildExplanationDialog(context),
+                ),
+              ],
+            )
           : null,
     );
   }
@@ -958,7 +1031,7 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           color: const Color(0xFFEDE7F6),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5),
+              color: const Color(0xFFD1C4E9).withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -986,31 +1059,31 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                 border: Border.all(color: Colors.grey.shade300, width: 1),
                 image: _imageFile != null
                     ? DecorationImage(
-                  image: FileImage(_imageFile!),
-                  fit: BoxFit.cover,
-                )
+                        image: FileImage(_imageFile!),
+                        fit: BoxFit.cover,
+                      )
                     : null,
               ),
               child: _imageFile == null
                   ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.image_outlined,
-                      size: 60,
-                      color: Colors.grey.shade400,
-                    ),
-                    Text(
-                      'No image selected',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_outlined,
+                            size: 60,
+                            color: Colors.grey.shade400,
+                          ),
+                          Text(
+                            'No image selected',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              )
+                    )
                   : null,
             ),
             const SizedBox(height: 15),
@@ -1020,7 +1093,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                    icon: const Icon(Icons.camera_alt_outlined,
+                        color: Colors.white),
                     label: Text(
                       'Camera',
                       style: GoogleFonts.montserrat(color: Colors.white),
@@ -1038,7 +1112,8 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library_outlined, color: Colors.white),
+                    icon: const Icon(Icons.photo_library_outlined,
+                        color: Colors.white),
                     label: Text(
                       'Gallery',
                       style: GoogleFonts.montserrat(color: Colors.white),
@@ -1072,7 +1147,7 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
           color: const Color(0xFFEDE7F6),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1C4E9).withOpacity(0.5),
+              color: const Color(0xFFD1C4E9).withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 3,
               offset: const Offset(0, 6),
@@ -1111,9 +1186,11 @@ class _FoodCaptureScreenState extends State<FoodCaptureScreen> {
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
               ),
-              style: GoogleFonts.montserrat(fontSize: 16, color: Colors.black87),
+              style:
+                  GoogleFonts.montserrat(fontSize: 16, color: Colors.black87),
               cursorColor: colorScheme.primary,
             ),
           ],
@@ -1137,7 +1214,9 @@ class PieChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromCircle(center: Offset(size.width / 2, size.height / 2), radius: size.shortestSide / 2);
+    final rect = Rect.fromCircle(
+        center: Offset(size.width / 2, size.height / 2),
+        radius: size.shortestSide / 2);
     double startAngle = -math.pi / 2;
 
     categoryCounts.forEach((category, count) {

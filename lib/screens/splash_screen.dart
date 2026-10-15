@@ -1,7 +1,7 @@
 // lib/screens/splash_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // Still imported for potential future use or if other text is added
+import 'package:femwise/widgets/pcos_logo.dart';
 import 'dart:async'; // Required for Timer
 import 'package:femwise/main.dart'; // Import your main.dart to access AuthWrapper
 
@@ -12,7 +12,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   // Removed text-related state variables: _displayedText, _fullText, _currentIndex, _textAnimationTimer
 
   late AnimationController _logoAnimationController;
@@ -22,8 +23,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   late AnimationController _pulseAnimationController;
   late Animation<double> _pulseScaleAnimation;
 
-  // Extracted color from your logo for consistent branding (though not used for text now)
-  final Color _brandColor = const Color(0xFF8A2BE2); // This is a shade of purple from your logo
+
 
   @override
   void initState() {
@@ -32,7 +32,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Initialize logo entry animation controller
     _logoAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200), // Duration for initial logo animation
+      duration: const Duration(
+          milliseconds: 1200), // Duration for initial logo animation
     );
 
     // Define logo fade animation (from invisible to fully visible)
@@ -54,7 +55,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Initialize pulse animation controller
     _pulseAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000), // Duration for one pulse cycle
+      duration:
+          const Duration(milliseconds: 1000), // Duration for one pulse cycle
     );
 
     // Define pulse scale animation (from normal size to slightly larger and back)
@@ -68,7 +70,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     // Start initial logo animation
     _logoAnimationController.forward().then((_) {
       // After initial logo animation completes, start the pulsing animation
-      _pulseAnimationController.repeat(reverse: true); // Repeats the animation back and forth
+      _pulseAnimationController.repeat(
+          reverse: true); // Repeats the animation back and forth
 
       // Navigate to the next screen after a total desired splash duration
       _navigateToNextScreen();
@@ -78,10 +81,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   void _navigateToNextScreen() {
     // Total duration for splash screen before navigating
     // This includes initial logo animation + some time for pulsing
-    Future.delayed(const Duration(milliseconds: 3000), () { // 3 seconds total splash time
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      // 3 seconds total splash time
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthWrapper()), // Navigate to AuthWrapper
+          MaterialPageRoute(
+              builder: (context) =>
+                  const AuthWrapper()), // Navigate to AuthWrapper
         );
       }
     });
@@ -89,8 +95,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   @override
   void dispose() {
-    _logoAnimationController.dispose(); // Dispose the logo entry animation controller
-    _pulseAnimationController.dispose(); // Dispose the logo pulse animation controller
+    _logoAnimationController
+        .dispose(); // Dispose the logo entry animation controller
+    _pulseAnimationController
+        .dispose(); // Dispose the logo pulse animation controller
     super.dispose();
   }
 
@@ -120,17 +128,13 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 opacity: _logoFadeAnimation, // Controls initial fade-in
                 child: ScaleTransition(
                   scale: _logoScaleAnimation, // Controls initial scale-up
-                  child: AnimatedBuilder( // Use AnimatedBuilder for continuous pulsing
+                  child: AnimatedBuilder(
+                    // Use AnimatedBuilder for continuous pulsing
                     animation: _pulseScaleAnimation,
                     builder: (context, child) {
                       return Transform.scale(
                         scale: _pulseScaleAnimation.value,
-                        child: Image.asset(
-                          'assets/logo.jpg', // Ensure this path is correct in your pubspec.yaml
-                          height: 200, // Larger size for splash screen
-                          width: 200,
-                          fit: BoxFit.contain,
-                        ),
+                        child: const PcosLogo(size: 200),
                       );
                     },
                   ),
