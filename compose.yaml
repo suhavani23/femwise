@@ -1,0 +1,26 @@
+# Optional local development alternative: docker compose up --build
+# Local-only ports; do not use this configuration as a public deployment.
+services:
+  mongo:
+    image: mongo:8.0
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  accounts:
+    build: ./backend
+    env_file: backend/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      mongo:
+        condition: service_healthy
+volumes:
+  mongo-data:

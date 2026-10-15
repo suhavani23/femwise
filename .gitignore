@@ -41,6 +41,7 @@ app.*.map.json
 
 # Android Studio will place build artifacts here
 /android/app/debug
+/android/app/.cxx/
 /android/app/profile
 /android/app/release
 
@@ -80,7 +81,6 @@ app.*.map.json
 /lib/**/*.shims.dart
 /lib/**/*.wasm.dart
 /lib/**/*.ffi.dart
-/pubspec.lock
 /flutter_assets/
 
 # VS Code specific
@@ -121,6 +121,9 @@ DerivedData/
 *.ffi.dart
 
 # Other
+.tools/
+.local-data/
+backups/
 .history/
 .fvm/
 .env
